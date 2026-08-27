@@ -141,6 +141,7 @@ public struct ClipCardView: View {
                 onAction(.paste)
             }
         )
+        .clipCardDraggable(clip: clip)
         .contextMenu {
             contextMenuItems
         }
@@ -389,5 +390,91 @@ private struct ClipCardHeaderView: View {
                     .frame(height: 0.75)
             }
         )
+    }
+}
+
+// MARK: - Clip Card Drag Preview
+
+private struct ClipCardDragPreview: View {
+    let clip: ClipRecord
+    
+    private var previewText: String {
+        if !clip.preview.isEmpty {
+            return clip.preview
+        }
+        return clip.content.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            #if os(macOS)
+            if clip.type == .image,
+               let path = clip.imagePath,
+               let img = ThumbnailManager.shared.cachedThumbnail(for: path) ?? NSImage(contentsOfFile: path) {
+                Image(nsImage: img)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 26, height: 26)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            } else {
+                Image(systemName: clip.type.systemImage)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(clip.type.themeColor)
+                    .frame(width: 26, height: 26)
+                    .background(clip.type.themeColor.opacity(0.16))
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            }
+            #else
+            Image(systemName: clip.type.systemImage)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(clip.type.themeColor)
+                .frame(width: 26, height: 26)
+                .background(clip.type.themeColor.opacity(0.16))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            #endif
+            
+            VStack(alignment: .leading, spacing: 2) {
+                if let source = clip.sourceName, !source.isEmpty {
+                    Text(source)
+                        .font(.system(size: 9.5, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                }
+                
+                Text(previewText)
+                    .font(.system(size: 11.5, weight: .regular))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(maxWidth: 220, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(.ultraThickMaterial)
+                .shadow(color: Color.black.opacity(0.18), radius: 8, x: 0, y: 3)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.1), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Draggable Modifier
+
+private extension View {
+    @ViewBuilder
+    func clipCardDraggable(clip: ClipRecord) -> some View {
+        if clip.type == .image, let path = clip.imagePath, !path.isEmpty {
+            self.draggable(ClipImageDragPayload(id: clip.id, imagePath: path)) {
+                ClipCardDragPreview(clip: clip)
+            }
+        } else {
+            self.draggable(ClipTextDragPayload(id: clip.id, content: clip.content)) {
+                ClipCardDragPreview(clip: clip)
+            }
+        }
     }
 }

@@ -74,7 +74,9 @@ public final class FloatingPanel: NSPanel {
         self.alphaValue = 0
         self.orderFrontRegardless()
         self.makeKeyAndOrderFront(nil)
+        self.makeFirstResponder(self.contentView)
         NSRunningApplication.current.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
+        NotificationCenter.default.post(name: .panelDidShow, object: nil)
         
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.15
@@ -84,6 +86,8 @@ public final class FloatingPanel: NSPanel {
     }
     
     public func hidePanel(deactivateApp: Bool = true) {
+        self.makeFirstResponder(self.contentView)
+        NotificationCenter.default.post(name: .panelDidHide, object: nil)
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.12
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)

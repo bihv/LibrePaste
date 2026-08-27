@@ -12,7 +12,7 @@ public struct ClipboardView: View {
     
     @State private var isSidebarCollapsed: Bool = true
     @State private var scrollTarget: ScrollTarget? = nil
-    @State private var isSearchFocused: Bool = false
+    @State private var keyEventMonitor: Any? = nil
     
     public init(store: ClipboardStore) {
         self.store = store
@@ -46,6 +46,14 @@ public struct ClipboardView: View {
                     },
                     onDelete: { id in
                         store.deletePinboard(id: id)
+                    },
+                    onReorder: { orderedIds in
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                            store.reorderPinboards(orderedIds: orderedIds)
+                        }
+                    },
+                    onAssignClip: { clipId, pinboardId in
+                        store.addClipToPinboard(clipId: clipId, pinboardId: pinboardId)
                     }
                 )
                 
@@ -59,6 +67,10 @@ public struct ClipboardView: View {
                     scrollTarget: scrollTarget,
                     onSelect: { idx in
                         store.activeIndex = idx
+                        store.isSearchFocused = false
+                        if let window = NSApp.keyWindow as? FloatingPanel {
+                            window.makeFirstResponder(window.contentView)
+                        }
                     },
                     onPaste: { clip in
                         store.paste(clip: clip)
@@ -93,108 +105,18 @@ public struct ClipboardView: View {
         }
         .frame(height: FloatingPanel.panelHeight)
         .background(.ultraThinMaterial)
-        .onKeyPress(.escape) {
-            if isSearchFocused {
-                isSearchFocused = false
-                if !store.query.isEmpty {
-                    store.query = ""
-                }
-                return .handled
-            }
-            if !store.query.isEmpty {
-                store.query = ""
-                return .handled
-            }
-            NotificationCenter.default.post(name: .hideFloatingPanel, object: nil)
-            return .handled
-        }
-        .onKeyPress(.leftArrow) {
-            guard !isSearchFocused else { return .ignored }
-            if store.activeIndex > 0 {
-                store.activeIndex -= 1
-                scrollTarget = ScrollTarget(index: store.activeIndex)
-            }
-            return .handled
-        }
-        .onKeyPress(.rightArrow) {
-            guard !isSearchFocused else { return .ignored }
-            if store.activeIndex < store.filteredClips.count - 1 {
-                store.activeIndex += 1
-                scrollTarget = ScrollTarget(index: store.activeIndex)
-            }
-            return .handled
-        }
-        .onKeyPress(.return) {
-            if store.activeIndex >= 0 && store.activeIndex < store.filteredClips.count {
-                let clip = store.filteredClips[store.activeIndex]
-                if NSEvent.modifierFlags.contains(.option) {
-                    store.paste(clip: clip, asPlainText: true)
-                } else {
-                    store.paste(clip: clip)
-                }
-                return .handled
-            }
-            return .ignored
-        }
-        .onKeyPress(.delete) {
-            let isCommandHeld = NSEvent.modifierFlags.contains(.command)
-            // When search is focused, regular delete is handled by the textfield
-            if isSearchFocused && !isCommandHeld {
-                return .ignored
-            }
-            if isCommandHeld || !isSearchFocused {
-                if store.activeIndex >= 0 && store.activeIndex < store.filteredClips.count {
-                    let clip = store.filteredClips[store.activeIndex]
-                    store.deleteClip(clip.id)
-                    return .handled
+        .onAppear {
+            if keyEventMonitor == nil {
+                keyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                    handleGlobalKeyEvent(event)
                 }
             }
-            return .ignored
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "123456789")) { press in
-            guard !isSearchFocused else { return .ignored }
-            if let num = Int(press.characters), num >= 1 && num <= 9 {
-                let targetIdx = num - 1
-                if targetIdx < store.filteredClips.count {
-                    let clip = store.filteredClips[targetIdx]
-                    if NSEvent.modifierFlags.contains(.option) {
-                        store.paste(clip: clip, asPlainText: true)
-                    } else {
-                        store.paste(clip: clip)
-                    }
-                    return .handled
-                }
+        .onDisappear {
+            if let monitor = keyEventMonitor {
+                NSEvent.removeMonitor(monitor)
+                keyEventMonitor = nil
             }
-            return .ignored
-        }
-        .onKeyPress(characters: CharacterSet(charactersIn: " ")) { _ in
-            guard !isSearchFocused else { return .ignored }
-            if store.activeIndex >= 0 && store.activeIndex < store.filteredClips.count {
-                let clip = store.filteredClips[store.activeIndex]
-                NotificationCenter.default.post(name: .openPreviewWindow, object: clip)
-                return .handled
-            }
-            return .ignored
-        }
-        .onKeyPress(characters: CharacterSet(charactersIn: "pP")) { _ in
-            guard !isSearchFocused else { return .ignored }
-            if store.activeIndex >= 0 && store.activeIndex < store.filteredClips.count {
-                let clip = store.filteredClips[store.activeIndex]
-                NotificationCenter.default.post(name: .openPreviewWindow, object: clip)
-                return .handled
-            }
-            return .ignored
-        }
-        .onKeyPress(characters: CharacterSet(charactersIn: "eE")) { _ in
-            guard !isSearchFocused else { return .ignored }
-            if store.activeIndex >= 0 && store.activeIndex < store.filteredClips.count {
-                let clip = store.filteredClips[store.activeIndex]
-                if clip.type != .image {
-                    NotificationCenter.default.post(name: .openEditWindow, object: clip)
-                    return .handled
-                }
-            }
-            return .ignored
         }
         .onChange(of: store.filter) {
             scrollTarget = ScrollTarget(index: 0)
@@ -202,6 +124,149 @@ public struct ClipboardView: View {
         .onChange(of: store.query) {
             scrollTarget = ScrollTarget(index: 0)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .panelDidShow)) { _ in
+            store.isSearchFocused = false
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showFloatingPanel)) { _ in
+            store.isSearchFocused = false
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .toggleFloatingPanel)) { _ in
+            store.isSearchFocused = false
+        }
+    }
+    
+    // MARK: - Keyboard Handling
+    
+    private func handleGlobalKeyEvent(_ event: NSEvent) -> NSEvent? {
+        guard let window = event.window as? FloatingPanel ?? NSApp.keyWindow as? FloatingPanel,
+              window.isVisible,
+              window.alphaValue > 0,
+              window.attachedSheet == nil else {
+            return event
+        }
+        
+        let isFieldEditor = window.firstResponder is NSTextView
+        let isSearching = isFieldEditor || store.isSearchFocused
+        let isCommand = event.modifierFlags.contains(.command)
+        let isOption = event.modifierFlags.contains(.option)
+        let chars = event.charactersIgnoringModifiers ?? ""
+        
+        // 1. Escape (keyCode 53)
+        if event.keyCode == 53 {
+            if isSearching {
+                window.makeFirstResponder(window.contentView)
+                store.isSearchFocused = false
+                if !store.query.isEmpty {
+                    store.query = ""
+                }
+                return nil
+            }
+            if !store.query.isEmpty {
+                store.query = ""
+                return nil
+            }
+            NotificationCenter.default.post(name: .hideFloatingPanel, object: nil)
+            return nil
+        }
+        
+        // 2. Focus Search: Command+F or Slash '/'
+        if (isCommand && (chars == "f" || chars == "F" || event.keyCode == 3)) ||
+           (!isSearching && chars == "/" && !isCommand && !isOption) {
+            store.isSearchFocused = true
+            return nil
+        }
+        
+        // 3. Down Arrow (keyCode 125) when in search -> return to cards
+        if event.keyCode == 125 && isSearching {
+            window.makeFirstResponder(window.contentView)
+            store.isSearchFocused = false
+            return nil
+        }
+        
+        // 4. Quick Paste 1-9 (top row or numpad)
+        if let num = Int(chars), num >= 1 && num <= 9 {
+            if !isSearching || isCommand {
+                let targetIdx = num - 1
+                if targetIdx < store.filteredClips.count {
+                    let clip = store.filteredClips[targetIdx]
+                    store.paste(clip: clip, asPlainText: isOption)
+                }
+                return nil
+            }
+        }
+        
+        // 5. If user is currently typing in search field, let remaining keys pass to NSTextField
+        if isSearching {
+            // Except Return key: paste active clip
+            if event.keyCode == 36 || event.keyCode == 76 {
+                if store.activeIndex >= 0 && store.activeIndex < store.filteredClips.count {
+                    let clip = store.filteredClips[store.activeIndex]
+                    store.paste(clip: clip, asPlainText: isOption)
+                    return nil
+                }
+            }
+            return event
+        }
+        
+        // --- Below this point: Field editor is NOT active ---
+        
+        // 6. Return / Enter (keyCode 36, 76)
+        if event.keyCode == 36 || event.keyCode == 76 {
+            if store.activeIndex >= 0 && store.activeIndex < store.filteredClips.count {
+                let clip = store.filteredClips[store.activeIndex]
+                store.paste(clip: clip, asPlainText: isOption)
+                return nil
+            }
+        }
+        
+        // 7. Left Arrow (keyCode 123)
+        if event.keyCode == 123 {
+            if store.activeIndex > 0 {
+                store.activeIndex -= 1
+                scrollTarget = ScrollTarget(index: store.activeIndex)
+            }
+            return nil
+        }
+        
+        // 8. Right Arrow (keyCode 124)
+        if event.keyCode == 124 {
+            if store.activeIndex < store.filteredClips.count - 1 {
+                store.activeIndex += 1
+                scrollTarget = ScrollTarget(index: store.activeIndex)
+            }
+            return nil
+        }
+        
+        // 9. Space (keyCode 49) or 'P' / 'p' (keyCode 35) -> Quick Look Preview
+        if event.keyCode == 49 || (!isCommand && (chars == "p" || chars == "P")) {
+            if store.activeIndex >= 0 && store.activeIndex < store.filteredClips.count {
+                let clip = store.filteredClips[store.activeIndex]
+                NotificationCenter.default.post(name: .openPreviewWindow, object: clip)
+                return nil
+            }
+        }
+        
+        // 10. 'E' / 'e' (keyCode 14) -> Edit Clip
+        if !isCommand && (chars == "e" || chars == "E" || event.keyCode == 14) {
+            if store.activeIndex >= 0 && store.activeIndex < store.filteredClips.count {
+                let clip = store.filteredClips[store.activeIndex]
+                if clip.type != .image {
+                    NotificationCenter.default.post(name: .openEditWindow, object: clip)
+                    return nil
+                }
+            }
+        }
+        
+        // 11. Command + Delete (keyCode 51)
+        if isCommand && event.keyCode == 51 {
+            if store.activeIndex >= 0 && store.activeIndex < store.filteredClips.count {
+                let clip = store.filteredClips[store.activeIndex]
+                store.deleteClip(clip.id)
+                return nil
+            }
+        }
+        
+        return event
     }
     
     // MARK: - Header & Footer
@@ -226,7 +291,7 @@ public struct ClipboardView: View {
             Spacer()
             
             // Search Bar
-            SearchBarView(text: $store.query, isFocused: $isSearchFocused) {
+            SearchBarView(text: $store.query, isFocused: $store.isSearchFocused) {
                 store.query = ""
             }
             
@@ -287,6 +352,7 @@ public struct ClipboardView: View {
             shortcutHint("↵", "Paste")
             shortcutHint("⌥↵", "Plain Text")
             shortcutHint("Space", "Preview")
+            shortcutHint("⌘F", "Search")
             shortcutHint("E", "Edit")
             shortcutHint("⌘⌫", "Delete")
             shortcutHint("Esc", "Hide")

@@ -7,6 +7,107 @@
 
 import Foundation
 import SwiftUI
+import CoreTransferable
+import UniformTypeIdentifiers
+
+// MARK: - Transferable Types and Payloads
+
+nonisolated public struct DragItemPayload: Codable, Transferable, Sendable {
+    public enum PayloadKind: String, Codable, Sendable {
+        case pinboard
+        case clip
+    }
+    
+    public let app: String
+    public let kind: PayloadKind
+    public let id: Int64
+    public let content: String?
+    
+    public init(kind: PayloadKind, id: Int64, content: String? = nil) {
+        self.app = "LibrePaste"
+        self.kind = kind
+        self.id = id
+        self.content = content
+    }
+    
+    public static var transferRepresentation: some TransferRepresentation {
+        CodableRepresentation(contentType: .json)
+        DataRepresentation(exportedContentType: .utf8PlainText) { item in
+            guard item.kind == .clip, let content = item.content, !content.isEmpty else {
+                throw CocoaError(.fileWriteUnknown)
+            }
+            return Data(content.utf8)
+        }
+    }
+}
+
+nonisolated public struct ClipTextDragPayload: Codable, Transferable, Sendable {
+    public let app: String
+    public let kind: DragItemPayload.PayloadKind
+    public let id: Int64
+    public let content: String
+    
+    public init(id: Int64, content: String) {
+        self.app = "LibrePaste"
+        self.kind = .clip
+        self.id = id
+        self.content = content
+    }
+    
+    public static var transferRepresentation: some TransferRepresentation {
+        ProxyRepresentation(exporting: \.content)
+        CodableRepresentation(contentType: .json)
+    }
+}
+
+nonisolated public struct ClipImageDragPayload: Codable, Transferable, Sendable {
+    public let app: String
+    public let kind: DragItemPayload.PayloadKind
+    public let id: Int64
+    public let fileURL: URL
+    
+    public init(id: Int64, imagePath: String) {
+        self.app = "LibrePaste"
+        self.kind = .clip
+        self.id = id
+        self.fileURL = URL(fileURLWithPath: imagePath)
+    }
+    
+    public static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(exportedContentType: .image) { item in
+            SentTransferredFile(item.fileURL)
+        }
+        ProxyRepresentation(exporting: \.fileURL)
+        CodableRepresentation(contentType: .json)
+    }
+}
+
+#if os(macOS)
+import AppKit
+
+extension DragItemPayload {
+    @MainActor private static var cachedChangeCount: Int = -1
+    @MainActor private static var cachedPayload: DragItemPayload? = nil
+    
+    @MainActor
+    public static func currentDragPayload() -> DragItemPayload? {
+        let pboard = NSPasteboard(name: .drag)
+        if pboard.changeCount == cachedChangeCount {
+            return cachedPayload
+        }
+        
+        cachedChangeCount = pboard.changeCount
+        guard let data = pboard.data(forType: .init("public.json")),
+              let payload = try? JSONDecoder().decode(DragItemPayload.self, from: data),
+              payload.app == "LibrePaste" else {
+            cachedPayload = nil
+            return nil
+        }
+        cachedPayload = payload
+        return payload
+    }
+}
+#endif
 
 public enum ClipType: String, Codable, CaseIterable, Identifiable {
     case text
@@ -71,7 +172,7 @@ public enum FilterType: String, CaseIterable, Identifiable {
     }
 }
 
-public struct ClipRecord: Identifiable, Codable, Equatable, Hashable {
+nonisolated public struct ClipRecord: Identifiable, Codable, Equatable, Hashable, Sendable {
     public var id: Int64
     public var type: ClipType
     public var content: String
@@ -128,7 +229,16 @@ public struct ClipRecord: Identifiable, Codable, Equatable, Hashable {
     }
 }
 
-public struct Pinboard: Identifiable, Codable, Equatable, Hashable {
+// MARK: - ClipRecord Transferable
+
+extension ClipRecord: Transferable {
+    public static var transferRepresentation: some TransferRepresentation {
+        ProxyRepresentation(exporting: \.content)
+        CodableRepresentation(contentType: .json)
+    }
+}
+
+nonisolated public struct Pinboard: Identifiable, Codable, Equatable, Hashable, Sendable {
     public var id: Int64
     public var name: String
     public var color: String
@@ -151,6 +261,14 @@ public struct Pinboard: Identifiable, Codable, Equatable, Hashable {
     
     public var swiftUIColor: Color {
         Color(hex: color) ?? Color.indigo
+    }
+}
+
+// MARK: - Pinboard Transferable
+
+extension Pinboard: Transferable {
+    public static var transferRepresentation: some TransferRepresentation {
+        CodableRepresentation(contentType: .json)
     }
 }
 

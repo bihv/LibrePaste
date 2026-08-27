@@ -38,6 +38,7 @@ public final class ClipboardStore {
     public var filter: FilterType = .all
     public var activeIndex: Int = 0
     public var isPaused: Bool = false
+    public var isSearchFocused: Bool = false
     public var storageStats: StorageStats? = nil
     public var settings: [String: String] = [:]
     
@@ -198,4 +199,6 @@ extension Notification.Name {
     public static let hideFloatingPanel = Notification.Name("hideFloatingPanel")
     public static let showFloatingPanel = Notification.Name("showFloatingPanel")
     public static let toggleFloatingPanel = Notification.Name("toggleFloatingPanel")
+    public static let panelDidShow = Notification.Name("panelDidShow")
+    public static let panelDidHide = Notification.Name("panelDidHide")
 }

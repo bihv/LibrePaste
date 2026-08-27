@@ -228,6 +228,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             store.query = ""
             store.filter = .all
             store.activeIndex = 0
+            store.isSearchFocused = false
             store.reloadClips()
             
             panel.showPanel()

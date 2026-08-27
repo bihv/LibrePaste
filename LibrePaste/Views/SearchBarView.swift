@@ -60,5 +60,14 @@ public struct SearchBarView: View {
                 .strokeBorder(isFocused ? Color.accentColor.opacity(0.5) : Color.clear, lineWidth: 1)
         )
         .frame(minWidth: 160, maxWidth: 240)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            isFocused = true
+        }
+        .onAppear {
+            if let bound = isFocusedBinding?.wrappedValue, bound != isFocused {
+                isFocused = bound
+            }
+        }
     }
 }
