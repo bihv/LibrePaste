@@ -12,6 +12,7 @@ public enum ClipAction {
     case paste
     case pastePlain
     case togglePin
+    case toggleReveal
     case delete
     case edit
     case preview
@@ -24,6 +25,7 @@ public struct ClipCardView: View {
     public let clip: ClipRecord
     public let index: Int
     public let isSelected: Bool
+    public let isRevealed: Bool
     public let pinboards: [Pinboard]
     public let onAction: (ClipAction) -> Void
     
@@ -33,12 +35,14 @@ public struct ClipCardView: View {
         clip: ClipRecord,
         index: Int,
         isSelected: Bool,
+        isRevealed: Bool = false,
         pinboards: [Pinboard],
         onAction: @escaping (ClipAction) -> Void
     ) {
         self.clip = clip
         self.index = index
         self.isSelected = isSelected
+        self.isRevealed = isRevealed
         self.pinboards = pinboards
         self.onAction = onAction
     }
@@ -48,6 +52,7 @@ public struct ClipCardView: View {
         clip: ClipRecord,
         index: Int,
         isSelected: Bool,
+        isRevealed: Bool = false,
         pinboards: [Pinboard],
         onSelect: @escaping () -> Void,
         onPaste: @escaping () -> Void,
@@ -63,6 +68,7 @@ public struct ClipCardView: View {
         self.clip = clip
         self.index = index
         self.isSelected = isSelected
+        self.isRevealed = isRevealed
         self.pinboards = pinboards
         self.onAction = { action in
             switch action {
@@ -70,6 +76,7 @@ public struct ClipCardView: View {
             case .paste: onPaste()
             case .pastePlain: onPastePlain()
             case .togglePin: onTogglePin()
+            case .toggleReveal: break
             case .delete: onDelete()
             case .edit: onEdit()
             case .preview: onPreview()
@@ -91,8 +98,10 @@ public struct ClipCardView: View {
                 clip: clip,
                 index: index,
                 isHovered: isHovered,
+                isRevealed: isRevealed,
                 theme: headerTheme,
-                onTogglePin: { onAction(.togglePin) }
+                onTogglePin: { onAction(.togglePin) },
+                onToggleReveal: { onAction(.toggleReveal) }
             )
             
             // Content Preview Area & Footer
@@ -151,7 +160,7 @@ public struct ClipCardView: View {
         .contextMenu {
             contextMenuItems
         }
-        .help("Double-click or press ↵ to paste")
+        .help(clip.isSensitive ? (isRevealed ? "Sensitive data revealed" : "Sensitive data masked • Click eye icon to reveal") : "Double-click or press ↵ to paste")
     }
     
     // MARK: - Subviews
@@ -165,20 +174,24 @@ public struct ClipCardView: View {
     }
     
     private var displayPreviewText: String {
-        if !clip.preview.isEmpty {
-            return clip.preview
+        let cleanText = RichTextHelper.stripHTML(clip.content)
+        
+        if clip.isSensitive && !isRevealed {
+            if !clip.preview.isEmpty {
+                return RichTextHelper.stripHTML(clip.preview)
+            }
+            return "••••••••••••••••"
         }
-        if clip.type == .richtext || (clip.content.contains("<") && clip.content.contains(">")) {
-            let stripped = clip.content.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-            return stripped.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !clip.preview.isEmpty && !clip.isSensitive {
+            return RichTextHelper.stripHTML(clip.preview)
         }
-        return clip.content
+        return !cleanText.isEmpty ? cleanText : RichTextHelper.stripHTML(clip.preview)
     }
     
     private var textContentView: some View {
         Text(displayPreviewText)
-            .font(.system(size: 12.5, weight: .regular, design: .default))
-            .foregroundStyle(.primary)
+            .font(clip.isSensitive && !isRevealed ? .system(size: 12, weight: .medium, design: .monospaced) : .system(size: 12.5, weight: .regular, design: .default))
+            .foregroundStyle(clip.isSensitive && !isRevealed ? .secondary : .primary)
             .lineSpacing(2.5)
             .multilineTextAlignment(.leading)
             .lineLimit(8)
@@ -201,7 +214,7 @@ public struct ClipCardView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6))
             }
             
-            Text(clip.content)
+            Text(displayPreviewText)
                 .font(.system(size: 12, weight: .regular, design: .monospaced))
                 .foregroundStyle(.primary)
                 .lineLimit(5)
@@ -210,8 +223,21 @@ public struct ClipCardView: View {
     }
     
     private var footerView: some View {
-        HStack(alignment: .center) {
-            if clip.type == .text || clip.type == .richtext {
+        HStack(alignment: .center, spacing: 6) {
+            if clip.isSensitive {
+                HStack(spacing: 3) {
+                    Image(systemName: clip.sensitiveType?.iconName ?? "lock.shield.fill")
+                        .font(.system(size: 8.5))
+                    Text(clip.customRuleName ?? clip.sensitiveType?.displayName ?? "Sensitive")
+                        .font(.system(size: 9, weight: .semibold))
+                        .lineLimit(1)
+                }
+                .foregroundStyle(clip.sensitiveType?.themeColor ?? .orange)
+                .padding(.horizontal, 4.5)
+                .padding(.vertical, 1.5)
+                .background((clip.sensitiveType?.themeColor ?? .orange).opacity(0.14))
+                .clipShape(RoundedRectangle(cornerRadius: 3.5))
+            } else if clip.type == .text || clip.type == .richtext {
                 Text("\(clip.content.count) chars")
                     .font(.system(size: 9.5, weight: .regular))
                     .foregroundStyle(.tertiary)
@@ -242,6 +268,12 @@ public struct ClipCardView: View {
         if clip.type == .link || clip.type == .richtext {
             Button(action: { onAction(.pastePlain) }) {
                 Label("Paste as Plain Text", systemImage: "text.alignleft")
+            }
+        }
+        
+        if clip.isSensitive {
+            Button(action: { onAction(.toggleReveal) }) {
+                Label(isRevealed ? "Hide Sensitive Content" : "Reveal Sensitive Content", systemImage: isRevealed ? "eye.slash" : "eye")
             }
         }
         
@@ -312,8 +344,10 @@ private struct ClipCardHeaderView: View {
     let clip: ClipRecord
     let index: Int
     let isHovered: Bool
+    let isRevealed: Bool
     let theme: CardHeaderTheme
     let onTogglePin: () -> Void
+    let onToggleReveal: () -> Void
     
     var body: some View {
         HStack(alignment: .center, spacing: 6) {
@@ -369,6 +403,21 @@ private struct ClipCardHeaderView: View {
             
             Spacer(minLength: 2)
             
+            // Eye Toggle Button for Sensitive Data
+            if clip.isSensitive {
+                Button(action: onToggleReveal) {
+                    Image(systemName: isRevealed ? "eye.slash.fill" : "eye.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(isRevealed ? Color(red: 1.0, green: 0.85, blue: 0.2) : Color.white.opacity(isHovered ? 0.9 : 0.6))
+                        .frame(width: 20, height: 20)
+                        .background(isRevealed ? Color.black.opacity(0.35) : Color.black.opacity(0.12))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .help(isRevealed ? "Hide sensitive data" : "Reveal sensitive data")
+                .accessibilityLabel(isRevealed ? "Hide sensitive data" : "Reveal sensitive data")
+            }
+            
             // Type icon badge
             Image(systemName: clip.type.systemImage)
                 .font(.system(size: 9, weight: .semibold))
@@ -393,6 +442,7 @@ private struct ClipCardHeaderView: View {
             }
             .buttonStyle(.plain)
             .help(clip.pinned ? "Unpin" : "Pin to Top")
+            .accessibilityLabel(clip.pinned ? "Unpin clip" : "Pin clip to top")
         }
         .padding(.horizontal, 9)
         .frame(height: 38)
@@ -418,10 +468,17 @@ private struct ClipCardDragPreview: View {
     let clip: ClipRecord
     
     private var previewText: String {
-        if !clip.preview.isEmpty {
-            return clip.preview
+        let cleanText = RichTextHelper.stripHTML(clip.content)
+        if clip.isSensitive {
+            if !clip.preview.isEmpty {
+                return RichTextHelper.stripHTML(clip.preview)
+            }
+            return "••••••••••••••••"
         }
-        return clip.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !clip.preview.isEmpty {
+            return RichTextHelper.stripHTML(clip.preview)
+        }
+        return cleanText
     }
     
     var body: some View {
@@ -436,19 +493,19 @@ private struct ClipCardDragPreview: View {
                     .frame(width: 26, height: 26)
                     .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             } else {
-                Image(systemName: clip.type.systemImage)
+                Image(systemName: clip.isSensitive ? (clip.sensitiveType?.iconName ?? "lock.shield.fill") : clip.type.systemImage)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(clip.type.themeColor)
+                    .foregroundStyle(clip.isSensitive ? (clip.sensitiveType?.themeColor ?? .orange) : clip.type.themeColor)
                     .frame(width: 26, height: 26)
-                    .background(clip.type.themeColor.opacity(0.16))
+                    .background((clip.isSensitive ? (clip.sensitiveType?.themeColor ?? .orange) : clip.type.themeColor).opacity(0.16))
                     .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
             #else
-            Image(systemName: clip.type.systemImage)
+            Image(systemName: clip.isSensitive ? (clip.sensitiveType?.iconName ?? "lock.shield.fill") : clip.type.systemImage)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(clip.type.themeColor)
+                .foregroundStyle(clip.isSensitive ? (clip.sensitiveType?.themeColor ?? .orange) : clip.type.themeColor)
                 .frame(width: 26, height: 26)
-                .background(clip.type.themeColor.opacity(0.16))
+                .background((clip.isSensitive ? (clip.sensitiveType?.themeColor ?? .orange) : clip.type.themeColor).opacity(0.16))
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             #endif
             

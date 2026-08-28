@@ -73,7 +73,7 @@ nonisolated public struct ClipImageDragPayload: Codable, Transferable, Sendable 
         self.fileURL = URL(fileURLWithPath: imagePath)
     }
     
-    private static func createDecryptedTempFile(from sourcePath: String) -> URL? {
+    private nonisolated static func createDecryptedTempFile(from sourcePath: String) -> URL? {
         guard let decryptedData = ThumbnailManager.shared.loadDecryptedImageData(from: sourcePath) else {
             return nil
         }
@@ -81,7 +81,7 @@ nonisolated public struct ClipImageDragPayload: Codable, Transferable, Sendable 
         let ext = sourceURL.pathExtension.isEmpty ? "png" : sourceURL.pathExtension
         let baseName = sourceURL.deletingPathExtension().lastPathComponent
         
-        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("LibrePasteDrag", isDirectory: true)
+        let tempDir = ThumbnailManager.dragTempDir
         try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
         
         let tempURL = tempDir.appendingPathComponent("\(baseName).\(ext)")
@@ -251,6 +251,9 @@ nonisolated public struct ClipRecord: Identifiable, Codable, Equatable, Hashable
     public var sourceName: String?
     public var sourceIcon: String? // app bundle identifier or path
     public var pinboardId: Int64?
+    public var isSensitive: Bool
+    public var sensitiveType: SensitiveDataType?
+    public var customRuleName: String?
     
     public init(
         id: Int64 = 0,
@@ -264,7 +267,10 @@ nonisolated public struct ClipRecord: Identifiable, Codable, Equatable, Hashable
         createdAt: Double = Date().timeIntervalSince1970 * 1000,
         sourceName: String? = nil,
         sourceIcon: String? = nil,
-        pinboardId: Int64? = nil
+        pinboardId: Int64? = nil,
+        isSensitive: Bool = false,
+        sensitiveType: SensitiveDataType? = nil,
+        customRuleName: String? = nil
     ) {
         self.id = id
         self.type = type
@@ -278,6 +284,9 @@ nonisolated public struct ClipRecord: Identifiable, Codable, Equatable, Hashable
         self.sourceName = sourceName
         self.sourceIcon = sourceIcon
         self.pinboardId = pinboardId
+        self.isSensitive = isSensitive
+        self.sensitiveType = sensitiveType
+        self.customRuleName = customRuleName
     }
     
     public var createdDate: Date {

@@ -211,11 +211,6 @@ public final class SecurityManager: @unchecked Sendable {
     
     @MainActor
     public func authenticate(reason: String = "Unlock LibrePaste clipboard history") async -> Bool {
-        guard isEnabled && isLocked else {
-            isLocked = false
-            return true
-        }
-        
         guard !isEvaluatingAuth else {
             return false
         }

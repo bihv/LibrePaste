@@ -22,10 +22,12 @@ public struct ClipListView: View {
     public let pinboards: [Pinboard]
     public let activeIndex: Int
     public let scrollTarget: ScrollTarget?
+    public let isRevealed: ((Int64) -> Bool)?
     public let onSelect: (Int) -> Void
     public let onPaste: (ClipRecord) -> Void
     public let onPastePlain: (ClipRecord) -> Void
     public let onTogglePin: (ClipRecord) -> Void
+    public let onToggleReveal: ((ClipRecord) -> Void)?
     public let onDelete: (Int64) -> Void
     public let onEdit: (ClipRecord) -> Void
     public let onPreview: (ClipRecord) -> Void
@@ -38,10 +40,12 @@ public struct ClipListView: View {
         pinboards: [Pinboard],
         activeIndex: Int,
         scrollTarget: ScrollTarget? = nil,
+        isRevealed: ((Int64) -> Bool)? = nil,
         onSelect: @escaping (Int) -> Void,
         onPaste: @escaping (ClipRecord) -> Void,
         onPastePlain: @escaping (ClipRecord) -> Void,
         onTogglePin: @escaping (ClipRecord) -> Void,
+        onToggleReveal: ((ClipRecord) -> Void)? = nil,
         onDelete: @escaping (Int64) -> Void,
         onEdit: @escaping (ClipRecord) -> Void,
         onPreview: @escaping (ClipRecord) -> Void,
@@ -53,10 +57,12 @@ public struct ClipListView: View {
         self.pinboards = pinboards
         self.activeIndex = activeIndex
         self.scrollTarget = scrollTarget
+        self.isRevealed = isRevealed
         self.onSelect = onSelect
         self.onPaste = onPaste
         self.onPastePlain = onPastePlain
         self.onTogglePin = onTogglePin
+        self.onToggleReveal = onToggleReveal
         self.onDelete = onDelete
         self.onEdit = onEdit
         self.onPreview = onPreview
@@ -74,6 +80,7 @@ public struct ClipListView: View {
                             clip: clip,
                             index: index,
                             isSelected: index == activeIndex,
+                            isRevealed: isRevealed?(clip.id) ?? false,
                             pinboards: pinboards,
                             onAction: { action in
                                 handleCardAction(action, clip: clip, index: index)
@@ -109,6 +116,8 @@ public struct ClipListView: View {
             onPastePlain(clip)
         case .togglePin:
             onTogglePin(clip)
+        case .toggleReveal:
+            onToggleReveal?(clip)
         case .delete:
             onDelete(clip.id)
         case .edit:

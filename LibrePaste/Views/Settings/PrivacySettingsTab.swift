@@ -20,12 +20,25 @@ public struct PrivacySettingsTab: View {
     @State private var appLockTimeout: SecurityManager.AutoLockTimeout = .fiveMinutes
     @State private var appLockOnSleep: Bool = true
     
+    // Sensitive Data Protection States
+    @State private var enableSensitiveMasking: Bool = true
+    @State private var maskApiKeys: Bool = true
+    @State private var maskCreditCards: Bool = true
+    @State private var maskDatabaseUrls: Bool = true
+    @State private var maskPII: Bool = true
+    @State private var requireAuthToReveal: Bool = false
+    @State private var autoPurgeHours: String = "0"
+    
+    @State private var showingAddRuleSheet: Bool = false
+    @State private var editingRule: CustomSensitiveRule? = nil
+    
     public init(store: ClipboardStore) {
         self.store = store
     }
     
     public var body: some View {
         Form {
+            // 1. App Lock & Security
             Section("App Lock & Security") {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
@@ -85,6 +98,197 @@ public struct PrivacySettingsTab: View {
                 .padding(.vertical, 4)
             }
             
+            // 2. Sensitive Data Masking & Protection (Unified)
+            Section("Sensitive Data Masking & Protection") {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Auto-Detect & Mask Sensitive Data")
+                                .font(.system(size: 13, weight: .medium))
+                            Text("Automatically shields API keys, credit cards, database URLs, credentials and custom tokens.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Toggle("", isOn: $enableSensitiveMasking)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .onChange(of: enableSensitiveMasking) { _, val in
+                                store.saveSetting(key: "enableSensitiveMasking", value: val ? "true" : "false")
+                                store.reloadClips()
+                            }
+                    }
+                    
+                    if enableSensitiveMasking {
+                        Divider()
+                            .opacity(0.4)
+                        
+                        // Sub-section A: Built-in Categories
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Protected Categories:")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            
+                            Toggle("API Keys, Secret Tokens & Private Keys", isOn: $maskApiKeys)
+                                .font(.system(size: 12.5))
+                                .onChange(of: maskApiKeys) { _, val in
+                                    store.saveSetting(key: "maskApiKeys", value: val ? "true" : "false")
+                                    store.reloadClips()
+                                }
+                            
+                            Toggle("Payment & Credit Cards (with Luhn validation)", isOn: $maskCreditCards)
+                                .font(.system(size: 12.5))
+                                .onChange(of: maskCreditCards) { _, val in
+                                    store.saveSetting(key: "maskCreditCards", value: val ? "true" : "false")
+                                    store.reloadClips()
+                                }
+                            
+                            Toggle("Database Connection Strings & Passwords", isOn: $maskDatabaseUrls)
+                                .font(.system(size: 12.5))
+                                .onChange(of: maskDatabaseUrls) { _, val in
+                                    store.saveSetting(key: "maskDatabaseUrls", value: val ? "true" : "false")
+                                    store.reloadClips()
+                                }
+                            
+                            Toggle("Personal Identifiable Information (CCCD, SSN)", isOn: $maskPII)
+                                .font(.system(size: 12.5))
+                                .onChange(of: maskPII) { _, val in
+                                    store.saveSetting(key: "maskPII", value: val ? "true" : "false")
+                                    store.reloadClips()
+                                }
+                        }
+                        .padding(.leading, 4)
+                        
+                        Divider()
+                            .opacity(0.4)
+                        
+                        // Sub-section B: Custom Sensitive Rules
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("Custom Sensitive Rules:")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Button("+ Add Rule...") {
+                                    showingAddRuleSheet = true
+                                }
+                                .font(.caption)
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
+                            
+                            if store.customSensitiveRules.isEmpty {
+                                Text("No custom regular expressions defined yet.")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                                    .padding(.vertical, 2)
+                                    .padding(.leading, 4)
+                            } else {
+                                VStack(spacing: 6) {
+                                    ForEach(store.customSensitiveRules) { rule in
+                                        HStack(spacing: 8) {
+                                            Toggle("", isOn: Binding(
+                                                get: { rule.isEnabled },
+                                                set: { store.toggleCustomSensitiveRule(id: rule.id, isEnabled: $0) }
+                                            ))
+                                            .labelsHidden()
+                                            .toggleStyle(.checkbox)
+                                            
+                                            Image(systemName: "wrench.and.screwdriver.fill")
+                                                .font(.system(size: 11))
+                                                .foregroundStyle(rule.isEnabled ? Color.accentColor : Color.secondary)
+                                            
+                                            VStack(alignment: .leading, spacing: 1) {
+                                                HStack(spacing: 6) {
+                                                    Text(rule.name)
+                                                        .font(.system(size: 12.5, weight: .medium))
+                                                    
+                                                    Text(rule.maskStrategy.displayName)
+                                                        .font(.system(size: 9.5))
+                                                        .padding(.horizontal, 4)
+                                                        .padding(.vertical, 1)
+                                                        .background(Color.primary.opacity(0.06))
+                                                        .clipShape(RoundedRectangle(cornerRadius: 3))
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                                
+                                                Text(rule.pattern)
+                                                    .font(.system(size: 10, design: .monospaced))
+                                                    .foregroundStyle(.tertiary)
+                                                    .lineLimit(1)
+                                            }
+                                            
+                                            Spacer()
+                                            
+                                            Button(action: { editingRule = rule }) {
+                                                Image(systemName: "pencil")
+                                                    .font(.system(size: 11.5))
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                            .buttonStyle(.plain)
+                                            .help("Edit rule")
+                                            
+                                            Button(action: { store.deleteCustomSensitiveRule(id: rule.id) }) {
+                                                Image(systemName: "trash")
+                                                    .font(.system(size: 11.5))
+                                                    .foregroundStyle(.red)
+                                            }
+                                            .buttonStyle(.plain)
+                                            .help("Delete rule")
+                                        }
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 5)
+                                        .background(Color.primary.opacity(0.03))
+                                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                                    }
+                                }
+                                .padding(.leading, 4)
+                            }
+                        }
+                        
+                        Divider()
+                            .opacity(0.4)
+                        
+                        // Sub-section C: Security & Access Behavior
+                        VStack(alignment: .leading, spacing: 10) {
+                            Toggle("Require Touch ID / Password to Reveal Secrets", isOn: $requireAuthToReveal)
+                                .font(.system(size: 13))
+                                .onChange(of: requireAuthToReveal) { _, val in
+                                    store.saveSetting(key: "requireAuthToReveal", value: val ? "true" : "false")
+                                }
+                            
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Auto-Purge Sensitive Clips")
+                                        .font(.system(size: 13))
+                                    Text("Permanently removes unpinned sensitive clips from history after time.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Picker("", selection: $autoPurgeHours) {
+                                    Text("Never").tag("0")
+                                    Text("After 1 Hour").tag("1")
+                                    Text("After 24 Hours").tag("24")
+                                    Text("After 7 Days").tag("168")
+                                }
+                                .labelsHidden()
+                                .frame(width: 150)
+                                .onChange(of: autoPurgeHours) { _, val in
+                                    store.saveSetting(key: "autoPurgeSensitiveHours", value: val)
+                                    if let hours = Int(val), hours > 0 {
+                                        DatabaseManager.shared.purgeSensitiveClips(olderThanHours: hours)
+                                        store.reloadClips()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+            
+            // 4. Security Filters
             Section("Security Filters") {
                 VStack(alignment: .leading, spacing: 6) {
                     Toggle("Ignore Password Managers", isOn: $ignorePasswords)
@@ -107,6 +311,7 @@ public struct PrivacySettingsTab: View {
                 }
             }
             
+            // 5. Ignored Applications
             Section("Ignored Applications") {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("LibrePaste will ignore clipboard copies when any of these apps is active:")
@@ -170,6 +375,16 @@ public struct PrivacySettingsTab: View {
         .onAppear {
             loadSettings()
         }
+        .sheet(isPresented: $showingAddRuleSheet) {
+            CustomRuleEditorSheet { newRule in
+                store.saveCustomSensitiveRule(newRule)
+            }
+        }
+        .sheet(item: $editingRule) { rule in
+            CustomRuleEditorSheet(ruleToEdit: rule) { updatedRule in
+                store.saveCustomSensitiveRule(updatedRule)
+            }
+        }
     }
     
     // MARK: - Helpers
@@ -179,6 +394,14 @@ public struct PrivacySettingsTab: View {
         appLockEnabled = SecurityManager.shared.isEnabled
         appLockTimeout = SecurityManager.shared.timeout
         appLockOnSleep = SecurityManager.shared.lockOnSleep
+        
+        enableSensitiveMasking = (store.settings["enableSensitiveMasking"] ?? "true") == "true"
+        maskApiKeys = (store.settings["maskApiKeys"] ?? "true") == "true"
+        maskCreditCards = (store.settings["maskCreditCards"] ?? "true") == "true"
+        maskDatabaseUrls = (store.settings["maskDatabaseUrls"] ?? "true") == "true"
+        maskPII = (store.settings["maskPII"] ?? "true") == "true"
+        requireAuthToReveal = (store.settings["requireAuthToReveal"] ?? "false") == "true"
+        autoPurgeHours = store.settings["autoPurgeSensitiveHours"] ?? "0"
         
         ignorePasswords = (store.settings["ignorePasswords"] ?? "true") == "true"
         ignoreTransient = (store.settings["ignoreTransient"] ?? "true") == "true"

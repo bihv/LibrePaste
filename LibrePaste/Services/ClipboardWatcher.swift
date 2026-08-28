@@ -238,72 +238,114 @@ public final class ClipboardWatcher {
     }
     
     private func readClipboard(pasteboard: NSPasteboard, sourceName: String?, bundleId: String?) -> ClipRecord? {
-        // 1. Check for Image (Extract native raw image data preserving format)
-        if let (imageData, ext, size) = extractRawImageData(from: pasteboard) {
-            let hash = HashHelper.sha256(imageData)
-            if hash == lastHash { return nil }
-            
-            let fileName = "\(String(hash.prefix(16))).\(ext)"
-            let fileURL = DatabaseManager.shared.imagesDir.appendingPathComponent(fileName)
-            
-            DispatchQueue.global(qos: .utility).async {
-                if !FileManager.default.fileExists(atPath: fileURL.path) {
-                    if let encrypted = CryptoService.shared.encrypt(data: imageData) {
-                        try? encrypted.write(to: fileURL)
-                    }
-                }
-                ThumbnailManager.shared.generateThumbnailInBackground(for: fileURL.path)
-            }
-            
-            let preview = "Image \(Int(size.width)) × \(Int(size.height))"
-            
-            return ClipRecord(
-                type: .image,
-                content: "",
-                rtf: nil,
-                imagePath: fileURL.path,
-                preview: preview,
-                hash: hash,
-                sourceName: sourceName,
-                sourceIcon: bundleId
-            )
+        // 1. Check if pasteboard has a local file URL to an image (e.g. copied directly from Finder)
+        if let (imageData, ext, size) = extractFileUrlImage(from: pasteboard) {
+            return createImageClip(imageData: imageData, ext: ext, size: size, sourceName: sourceName, bundleId: bundleId)
         }
         
-        // 2. Check for Text / HTML / RTF
+        // 2. Read Text / HTML / RTF
         let text = pasteboard.string(forType: .string) ?? ""
         let html = pasteboard.string(forType: .html) ?? ""
         let rtfData = pasteboard.data(forType: .rtf)
         let rtf = rtfData.flatMap { String(data: $0, encoding: .utf8) }
         
-        if text.isEmpty && html.isEmpty {
-            return nil
+        // Strip whitespace and Object Replacement Character (\u{FFFC}) common in rich text apps
+        let trimmedText = text
+            .replacingOccurrences(of: "\u{FFFC}", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let strippedHtml = stripHTML(html).trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasReadableText = !trimmedText.isEmpty || !strippedHtml.isEmpty
+        
+        // 3. If there is NO readable text, check if raw image data exists
+        // (Microsoft Word/Pages puts RTF \pict or HTML <img> on pasteboard when copying an image, but has no readable text)
+        if !hasReadableText {
+            if let (imageData, ext, size) = extractRawImageData(from: pasteboard) {
+                return createImageClip(imageData: imageData, ext: ext, size: size, sourceName: sourceName, bundleId: bundleId)
+            }
         }
         
-        // Classify
-        let type: ClipType
-        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedText.isEmpty && isURL(trimmedText) {
-            type = .link
-        } else if hasRichFormatting(html) {
-            type = .richtext
-        } else {
-            type = .text
+        // 4. If we have actual readable text content
+        if hasReadableText || rtf != nil {
+            // Classify
+            let type: ClipType
+            if !trimmedText.isEmpty && isURL(trimmedText) {
+                type = .link
+            } else if hasRichFormatting(html) || rtf != nil {
+                type = .richtext
+            } else {
+                type = .text
+            }
+            
+            let hashSource = !html.isEmpty ? html : (!text.isEmpty ? text : (rtf ?? ""))
+            let hash = HashHelper.sha256(hashSource)
+            if hash == lastHash {
+                return nil
+            }
+            
+            let content = !html.isEmpty ? html : text
+            var preview = buildPreview(text: !text.isEmpty ? text : stripHTML(html))
+            
+            // Sensitive data detection
+            let scanSource = !text.isEmpty ? text : stripHTML(html)
+            let matchResult = SensitiveDataService.shared.detectSensitiveData(in: scanSource)
+            let isSensitive = matchResult != nil
+            let sensitiveType = matchResult?.type
+            let customRuleName = matchResult?.customRuleName
+            if let masked = matchResult?.maskedPreview {
+                preview = masked
+            }
+            
+            return ClipRecord(
+                type: type,
+                content: content,
+                rtf: rtf,
+                imagePath: nil,
+                preview: preview,
+                hash: hash,
+                sourceName: sourceName,
+                sourceIcon: bundleId,
+                isSensitive: isSensitive,
+                sensitiveType: sensitiveType,
+                customRuleName: customRuleName
+            )
         }
         
-        let hashSource = !html.isEmpty ? html : (!text.isEmpty ? text : (rtf ?? ""))
-        let hash = HashHelper.sha256(hashSource)
-        if hash == lastHash {
-            return nil
+        // 5. Fallback to Pure Image (e.g. Screenshots, Browser 'Copy Image', Photoshop, Figma)
+        if let (imageData, ext, size) = extractRawImageData(from: pasteboard) {
+            return createImageClip(imageData: imageData, ext: ext, size: size, sourceName: sourceName, bundleId: bundleId)
         }
         
-        let content = !html.isEmpty ? html : text
-        let preview = buildPreview(text: !text.isEmpty ? text : stripHTML(html))
+        return nil
+    }
+    
+    private func createImageClip(imageData: Data, ext: String, size: CGSize, sourceName: String?, bundleId: String?) -> ClipRecord? {
+        let hash = HashHelper.sha256(imageData)
+        if hash == lastHash { return nil }
+        
+        let fileName = "\(String(hash.prefix(16))).\(ext)"
+        let fileURL = DatabaseManager.shared.imagesDir.appendingPathComponent(fileName)
+        
+        // Write file immediately to prevent race conditions when UI accesses it
+        if !FileManager.default.fileExists(atPath: fileURL.path) {
+            if let encrypted = CryptoService.shared.encrypt(data: imageData) {
+                try? encrypted.write(to: fileURL)
+            }
+        }
+        
+        // Pre-populate RAM cache for instant 0ms rendering on clip cards
+        if let originalImage = NSImage(data: imageData) {
+            ThumbnailManager.shared.cacheThumbnail(originalImage, for: fileURL.path)
+        }
+        
+        ThumbnailManager.shared.generateThumbnailInBackground(for: fileURL.path)
+        
+        let preview = "Image \(Int(size.width)) × \(Int(size.height))"
         
         return ClipRecord(
-            type: type,
-            content: content,
-            rtf: rtf,
-            imagePath: nil,
+            type: .image,
+            content: "",
+            rtf: nil,
+            imagePath: fileURL.path,
             preview: preview,
             hash: hash,
             sourceName: sourceName,
@@ -342,8 +384,7 @@ public final class ClipboardWatcher {
     
     // MARK: - Native Image Extraction
     
-    private func extractRawImageData(from pasteboard: NSPasteboard) -> (data: Data, ext: String, size: CGSize)? {
-        // 1. Check if pasteboard has a local file URL to an image (e.g. copied from Finder)
+    private func extractFileUrlImage(from pasteboard: NSPasteboard) -> (data: Data, ext: String, size: CGSize)? {
         if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
            let firstUrl = urls.first, firstUrl.isFileURL {
             let ext = firstUrl.pathExtension.lowercased()
@@ -354,8 +395,11 @@ public final class ClipboardWatcher {
                 }
             }
         }
-
-        // 2. Preferred raw image types directly from pasteboard (preserving original format)
+        return nil
+    }
+    
+    private func extractRawImageData(from pasteboard: NSPasteboard) -> (data: Data, ext: String, size: CGSize)? {
+        // Preferred raw image types directly from pasteboard (preserving original format)
         let formatPriority: [(type: NSPasteboard.PasteboardType, ext: String)] = [
             (NSPasteboard.PasteboardType(UTType.gif.identifier), "gif"),
             (NSPasteboard.PasteboardType(UTType.jpeg.identifier), "jpg"),
@@ -386,7 +430,7 @@ public final class ClipboardWatcher {
             }
         }
         
-        // 3. Fallback to NSImage if only TIFF or generic pasteboard representation exists
+        // Fallback to NSImage if only TIFF or generic pasteboard representation exists
         if let image = NSImage(pasteboard: pasteboard), image.isValid {
             if let tiffData = image.tiffRepresentation,
                let bitmap = NSBitmapImageRep(data: tiffData) {

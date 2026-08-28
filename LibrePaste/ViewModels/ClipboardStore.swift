@@ -118,6 +118,13 @@ public final class ClipboardStore {
         if settings["pasteTarget"] == "active" {
             saveSetting(key: "pasteTarget", value: "direct")
         }
+        
+        let autoPurgeHours = Int(settings["autoPurgeSensitiveHours"] ?? "0") ?? 0
+        if autoPurgeHours > 0 {
+            DatabaseManager.shared.purgeSensitiveClips(olderThanHours: autoPurgeHours)
+        }
+        
+        reloadCustomSensitiveRules()
     }
     
     public func reloadStats() {
@@ -154,6 +161,7 @@ public final class ClipboardStore {
     }
     
     public func deleteClip(_ clipId: Int64) {
+        revealedClipIds.remove(clipId)
         DatabaseManager.shared.deleteClip(id: clipId)
         PasteQueueManager.shared.remove(clipId: clipId)
         reloadClips()
@@ -166,6 +174,7 @@ public final class ClipboardStore {
     }
     
     public func clearAll() {
+        revealedClipIds.removeAll()
         DatabaseManager.shared.clearAll()
         PasteQueueManager.shared.clear()
         reloadClips()
@@ -234,6 +243,56 @@ public final class ClipboardStore {
     public func updateLockSettings(enabled: Bool, timeout: SecurityManager.AutoLockTimeout, lockOnSleep: Bool) {
         SecurityManager.shared.updateSettings(enabled: enabled, timeout: timeout, lockOnSleep: lockOnSleep)
         reloadSettings()
+    }
+    
+    // MARK: - Sensitive Data Masking & Reveal State
+    
+    public var revealedClipIds: Set<Int64> = []
+    public var customSensitiveRules: [CustomSensitiveRule] = []
+    
+    public func isRevealed(clipId: Int64) -> Bool {
+        revealedClipIds.contains(clipId)
+    }
+    
+    public func toggleReveal(clip: ClipRecord) {
+        if revealedClipIds.contains(clip.id) {
+            revealedClipIds.remove(clip.id)
+            return
+        }
+        
+        let requireAuth = (settings["requireAuthToReveal"] ?? "false") == "true"
+        if requireAuth {
+            Task { @MainActor in
+                let success = await SecurityManager.shared.authenticate(reason: "Authenticate to view sensitive data")
+                if success {
+                    self.revealedClipIds.insert(clip.id)
+                }
+            }
+        } else {
+            revealedClipIds.insert(clip.id)
+        }
+    }
+    
+    public func reloadCustomSensitiveRules() {
+        customSensitiveRules = SensitiveDataService.shared.getCustomRules()
+    }
+    
+    public func saveCustomSensitiveRule(_ rule: CustomSensitiveRule) {
+        SensitiveDataService.shared.saveCustomRule(rule)
+        reloadCustomSensitiveRules()
+        reloadClips()
+    }
+    
+    public func deleteCustomSensitiveRule(id: UUID) {
+        SensitiveDataService.shared.deleteCustomRule(id: id)
+        reloadCustomSensitiveRules()
+        reloadClips()
+    }
+    
+    public func toggleCustomSensitiveRule(id: UUID, isEnabled: Bool) {
+        SensitiveDataService.shared.toggleCustomRule(id: id, isEnabled: isEnabled)
+        reloadCustomSensitiveRules()
+        reloadClips()
     }
 }
 

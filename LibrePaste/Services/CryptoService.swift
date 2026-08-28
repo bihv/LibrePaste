@@ -12,12 +12,12 @@ import Security
 /// Thread-safe cryptographic service utilizing Apple CryptoKit (AES-GCM 256-bit)
 /// with master keys stored securely in the macOS Keychain.
 public final class CryptoService: @unchecked Sendable {
-    public static let shared = CryptoService()
+    public nonisolated static let shared = CryptoService()
     
     private let serviceName = "bihv.LibrePaste.encryption"
     private let accountName = "DatabaseMasterKey"
     
-    private var cachedKey: SymmetricKey?
+    private nonisolated(unsafe) var cachedKey: SymmetricKey?
     private let lock = NSLock()
     
     private init() {
@@ -26,76 +26,97 @@ public final class CryptoService: @unchecked Sendable {
     
     // MARK: - Key Management
     
-    /// Loads master key from macOS Keychain, or generates and securely saves a new one.
-    private func loadOrGenerateMasterKey() -> SymmetricKey {
-        if let existingKey = loadKeyFromKeychain() {
-            return existingKey
+    private nonisolated var keyFileURL: URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support", isDirectory: true)
+        let dir = appSupport.appendingPathComponent("LibrePaste", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent(".master_encryption.key")
+    }
+    
+    private nonisolated func loadKeyFromFile() -> SymmetricKey? {
+        guard let data = try? Data(contentsOf: keyFileURL), data.count == 32 else {
+            return nil
+        }
+        return SymmetricKey(data: data)
+    }
+    
+    private nonisolated func saveKeyToFile(_ key: SymmetricKey) {
+        let data = key.withUnsafeBytes { Data($0) }
+        let path = keyFileURL.path
+        try? data.write(to: keyFileURL, options: .atomic)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path)
+    }
+    
+    /// Loads master key from secure file storage / macOS Keychain, or generates and securely saves a new one.
+    private nonisolated func loadOrGenerateMasterKey() -> SymmetricKey {
+        // 1. Try file-based secure storage first (fast, atomic, zero prompts, POSIX 0600)
+        if let fileKey = loadKeyFromFile() {
+            return fileKey
         }
         
+        // 2. Try macOS Keychain
+        if let keychainKey = loadKeyFromKeychain() {
+            saveKeyToFile(keychainKey)
+            return keychainKey
+        }
+        
+        // 3. Generate a new 256-bit symmetric key and persist securely
         let newKey = SymmetricKey(size: .bits256)
+        saveKeyToFile(newKey)
         saveKeyToKeychain(newKey)
         return newKey
     }
     
-    private func loadKeyFromKeychain() -> SymmetricKey? {
-        // 1. Try standard query (persists reliably across debug rebuilds and launches)
-        var query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: serviceName,
-            kSecAttrAccount as String: accountName,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-        
-        var item: CFTypeRef?
-        var status = SecItemCopyMatching(query as CFDictionary, &item)
-        
-        // 2. Fallback to Data Protection query if standard query did not find it
-        if status != errSecSuccess {
-            query[kSecUseDataProtectionKeychain as String] = true
-            item = nil
-            status = SecItemCopyMatching(query as CFDictionary, &item)
-        }
-        
-        guard status == errSecSuccess, let data = item as? Data else {
-            return nil
-        }
-        
-        return SymmetricKey(data: data)
-    }
-    
-    private func saveKeyToKeychain(_ key: SymmetricKey) {
-        let keyData = key.withUnsafeBytes { Data($0) }
-        
+    private nonisolated func loadKeyFromKeychain() -> SymmetricKey? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: serviceName,
             kSecAttrAccount as String: accountName,
-            kSecValueData as String: keyData,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecUseDataProtectionKeychain as String: true
         ]
         
-        var status = SecItemAdd(query as CFDictionary, nil)
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        
+        if status == errSecSuccess, let data = item as? Data, data.count == 32 {
+            return SymmetricKey(data: data)
+        }
+        
+        return nil
+    }
+    
+    private nonisolated func saveKeyToKeychain(_ key: SymmetricKey) {
+        let keyData = key.withUnsafeBytes { Data($0) }
+        
+        let addQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: serviceName,
+            kSecAttrAccount as String: accountName,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+            kSecUseDataProtectionKeychain as String: true,
+            kSecValueData as String: keyData
+        ]
+        
+        let status = SecItemAdd(addQuery as CFDictionary, nil)
         if status == errSecDuplicateItem {
-            // Update existing item
-            let updateQuery: [String: Any] = [
+            let baseQuery: [String: Any] = [
                 kSecClass as String: kSecClassGenericPassword,
                 kSecAttrService as String: serviceName,
-                kSecAttrAccount as String: accountName
+                kSecAttrAccount as String: accountName,
+                kSecUseDataProtectionKeychain as String: true
             ]
             let attributes: [String: Any] = [
                 kSecValueData as String: keyData,
                 kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
             ]
-            status = SecItemUpdate(updateQuery as CFDictionary, attributes as CFDictionary)
-        }
-        
-        if status != errSecSuccess {
-            print("[CryptoService] Keychain save failed with OSStatus: \(status)")
+            _ = SecItemUpdate(baseQuery as CFDictionary, attributes as CFDictionary)
         }
     }
     
-    private var masterKey: SymmetricKey {
+    private nonisolated var masterKey: SymmetricKey {
         lock.lock()
         defer { lock.unlock() }
         
@@ -110,7 +131,7 @@ public final class CryptoService: @unchecked Sendable {
     // MARK: - Encryption & Decryption (Data)
     
     /// Encrypts raw data using AES-GCM (Nonce + Ciphertext + Authentication Tag).
-    public func encrypt(data: Data) -> Data? {
+    public nonisolated func encrypt(data: Data) -> Data? {
         guard !data.isEmpty else { return Data() }
         do {
             let sealedBox = try AES.GCM.seal(data, using: masterKey)
@@ -122,7 +143,7 @@ public final class CryptoService: @unchecked Sendable {
     }
     
     /// Decrypts AES-GCM data. If decryption fails, returns nil.
-    public func decrypt(data: Data) -> Data? {
+    public nonisolated func decrypt(data: Data) -> Data? {
         guard !data.isEmpty else { return Data() }
         do {
             let sealedBox = try AES.GCM.SealedBox(combined: data)
@@ -135,13 +156,13 @@ public final class CryptoService: @unchecked Sendable {
     // MARK: - Encryption & Decryption (String)
     
     /// Encrypts a string into AES-GCM encrypted Data.
-    public func encryptString(_ text: String) -> Data? {
+    public nonisolated func encryptString(_ text: String) -> Data? {
         guard let data = text.data(using: .utf8) else { return nil }
         return encrypt(data: data)
     }
     
     /// Decrypts AES-GCM Data into a UTF-8 String.
-    public func decryptString(from data: Data) -> String? {
+    public nonisolated func decryptString(from data: Data) -> String? {
         guard let decryptedData = decrypt(data: data) else {
             return nil
         }

@@ -87,6 +87,7 @@ public struct ClipboardView: View {
                             pinboards: store.pinboards,
                             activeIndex: store.activeIndex,
                             scrollTarget: scrollTarget,
+                            isRevealed: { store.isRevealed(clipId: $0) },
                             onSelect: { idx in
                                 store.activeIndex = idx
                                 store.isSearchFocused = false
@@ -102,6 +103,9 @@ public struct ClipboardView: View {
                             },
                             onTogglePin: { clip in
                                 store.togglePin(clip)
+                            },
+                            onToggleReveal: { clip in
+                                store.toggleReveal(clip: clip)
                             },
                             onDelete: { id in
                                 store.deleteClip(id)

@@ -61,15 +61,19 @@ public struct ClipThumbnailView: View {
             }
         }
         .task(id: imagePath) {
-            guard let path = imagePath, !path.isEmpty else { return }
-            // If already cached in state or RAM, skip background work
-            if thumbnail != nil { return }
+            guard let path = imagePath, !path.isEmpty else {
+                thumbnail = nil
+                return
+            }
             if let cached = ThumbnailManager.shared.cachedThumbnail(for: path) {
                 self.thumbnail = cached
                 return
             }
             
-            // Asynchronously load/downsample on background queue
+            // Reset to nil while loading new path to prevent showing stale image
+            self.thumbnail = nil
+            
+            // Asynchronously load/downsample on background queue (internally falls back to full image decoding on background task)
             if let loaded = await ThumbnailManager.shared.loadThumbnail(for: path) {
                 if !Task.isCancelled {
                     withAnimation(.easeInOut(duration: 0.15)) {
@@ -81,12 +85,9 @@ public struct ClipThumbnailView: View {
     }
     
     private var currentImage: NSImage? {
-        if let thumb = thumbnail {
-            return thumb
+        if let path = imagePath, let cached = ThumbnailManager.shared.cachedThumbnail(for: path) {
+            return cached
         }
-        if let path = imagePath {
-            return ThumbnailManager.shared.cachedThumbnail(for: path)
-        }
-        return nil
+        return thumbnail
     }
 }

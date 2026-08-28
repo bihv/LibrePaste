@@ -17,6 +17,7 @@ public struct QuickLookPreviewView: View {
     @State private var richAttributedString: NSAttributedString?
     @State private var imageActualSize: Bool = false
     @State private var isCopied: Bool = false
+    @State private var isRevealed: Bool = false
     @FocusState private var isViewFocused: Bool
     
     public init(clip: ClipRecord, onPaste: @escaping () -> Void, onClose: @escaping () -> Void) {
@@ -48,14 +49,17 @@ public struct QuickLookPreviewView: View {
     }
     
     private var plainTextContent: String {
+        let cleanText = RichTextHelper.stripHTML(clip.content)
+        if clip.isSensitive && !isRevealed {
+            if !clip.preview.isEmpty {
+                return RichTextHelper.stripHTML(clip.preview)
+            }
+            return "••••••••••••••••"
+        }
         if let rich = richAttributedString {
             return rich.string.trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        if clip.content.contains("<") && clip.content.contains(">") {
-            return clip.content.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        return clip.content
+        return !cleanText.isEmpty ? cleanText : clip.content
     }
     
     // MARK: - Body
@@ -66,6 +70,11 @@ public struct QuickLookPreviewView: View {
             headerBar
             
             Divider()
+            
+            // Sensitive Warning Banner
+            if clip.isSensitive {
+                sensitiveWarningBanner
+            }
             
             // Content Area (Directly Formatted)
             contentArea
@@ -95,6 +104,10 @@ public struct QuickLookPreviewView: View {
             return .handled
         }
         .onKeyPress(characters: CharacterSet(charactersIn: " ")) { _ in
+            if clip.isSensitive {
+                handleToggleReveal()
+                return .handled
+            }
             onClose()
             return .handled
         }
@@ -114,6 +127,68 @@ public struct QuickLookPreviewView: View {
             return
         }
         richAttributedString = RichTextHelper.parse(content: clip.content, rtf: clip.rtf, isDark: isDark)
+    }
+    
+    // MARK: - Sensitive Warning Banner
+    
+    private var sensitiveWarningBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: clip.sensitiveType?.iconName ?? "lock.shield.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(clip.sensitiveType?.themeColor ?? .orange)
+            
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Sensitive Data Protected: \(clip.customRuleName ?? clip.sensitiveType?.displayName ?? "Secret")")
+                    .font(.system(size: 12, weight: .semibold))
+                Text(isRevealed ? "Content is temporarily unmasked on screen." : "Content is masked to prevent visual exposure. Press Space or click Reveal.")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.secondary)
+            }
+            
+            Spacer()
+            
+            Button(action: handleToggleReveal) {
+                Label(isRevealed ? "Hide Secret" : "Reveal Secret", systemImage: isRevealed ? "eye.slash" : "eye")
+                    .font(.system(size: 11.5, weight: .medium))
+            }
+            .buttonStyle(.bordered)
+            .tint(clip.sensitiveType?.themeColor ?? .orange)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background((clip.sensitiveType?.themeColor ?? .orange).opacity(0.1))
+        .overlay(
+            Rectangle()
+                .frame(height: 1)
+                .foregroundStyle((clip.sensitiveType?.themeColor ?? .orange).opacity(0.2)),
+            alignment: .bottom
+        )
+    }
+    
+    private func handleToggleReveal() {
+        if isRevealed {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isRevealed = false
+            }
+            return
+        }
+        
+        let settings = DatabaseManager.shared.getAllSettings()
+        let requireAuth = (settings["requireAuthToReveal"] ?? "false") == "true"
+        if requireAuth {
+            Task { @MainActor in
+                let success = await SecurityManager.shared.authenticate(reason: "Authenticate to view sensitive data in Quick Look")
+                if success {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        self.isRevealed = true
+                    }
+                }
+            }
+        } else {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isRevealed = true
+            }
+        }
     }
     
     // MARK: - Header Bar
@@ -153,6 +228,16 @@ public struct QuickLookPreviewView: View {
             }
             
             Spacer()
+            
+            // Sensitive Reveal Button
+            if clip.isSensitive {
+                Button(action: handleToggleReveal) {
+                    Label(isRevealed ? "Hide" : "Reveal", systemImage: isRevealed ? "eye.slash" : "eye")
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(.bordered)
+                .help(isRevealed ? "Hide sensitive text" : "Reveal sensitive text (Space)")
+            }
             
             // Contextual Actions
             if clip.type == .image, let path = clip.imagePath {
@@ -233,7 +318,9 @@ public struct QuickLookPreviewView: View {
             QuickLookLinkContent(url: parsedURL, content: clip.content)
             
         case .richtext, .text:
-            if isJSON {
+            if clip.isSensitive && !isRevealed {
+                QuickLookTextContent(text: plainTextContent)
+            } else if isJSON {
                 QuickLookJSONContent(jsonText: prettyJSON ?? clip.content)
             } else if isRichText {
                 if let rich = richAttributedString {
@@ -368,7 +455,9 @@ public struct QuickLookPreviewView: View {
                 }
             }
         default:
-            if isRichText {
+            if clip.isSensitive && !isRevealed {
+                pasteboard.setString(plainTextContent, forType: .string)
+            } else if isRichText {
                 if let rtf = clip.rtf, let rtfData = rtf.data(using: .utf8) {
                     pasteboard.setData(rtfData, forType: .rtf)
                 }
@@ -400,7 +489,7 @@ public struct QuickLookPreviewView: View {
         let ext = originalURL.pathExtension.isEmpty ? "png" : originalURL.pathExtension
         let baseName = originalURL.deletingPathExtension().lastPathComponent
         
-        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("LibrePastePreview", isDirectory: true)
+        let tempDir = ThumbnailManager.previewTempDir
         try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
         let tempURL = tempDir.appendingPathComponent("\(baseName).\(ext)")
         
