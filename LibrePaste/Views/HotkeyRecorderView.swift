@@ -11,6 +11,7 @@ import Cocoa
 
 public struct HotkeyRecorderView: View {
     @Binding public var shortcut: KeyboardShortcut
+    public var defaultShortcut: KeyboardShortcut
     public var onChange: ((KeyboardShortcut) -> Void)?
     
     @State private var isRecording: Bool = false
@@ -20,8 +21,13 @@ public struct HotkeyRecorderView: View {
     @State private var errorMessage: String? = nil
     @State private var shakeOffset: CGFloat = 0
     
-    public init(shortcut: Binding<KeyboardShortcut>, onChange: ((KeyboardShortcut) -> Void)? = nil) {
+    public init(
+        shortcut: Binding<KeyboardShortcut>,
+        defaultShortcut: KeyboardShortcut = .defaultShortcut,
+        onChange: ((KeyboardShortcut) -> Void)? = nil
+    ) {
         self._shortcut = shortcut
+        self.defaultShortcut = defaultShortcut
         self.onChange = onChange
     }
     
@@ -57,11 +63,11 @@ public struct HotkeyRecorderView: View {
                         }
                     }
                 }
-                .help(isRecording ? "Press your shortcut keys now (Esc to cancel)" : "Click to record a new global shortcut")
+                .help(isRecording ? "Press your shortcut keys now (Esc to cancel)" : "Click to record a new shortcut")
                 .offset(x: shakeOffset)
                 
                 // Reset Button (shown if current shortcut differs from default)
-                if shortcut != .defaultShortcut && !isRecording {
+                if shortcut != defaultShortcut && !isRecording {
                     Button(action: resetToDefault) {
                         Image(systemName: "arrow.counterclockwise")
                             .font(.system(size: 11, weight: .semibold))
@@ -71,7 +77,8 @@ public struct HotkeyRecorderView: View {
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
-                    .help("Reset to default (⌘ Shift V)")
+                    .help("Reset to default (\(defaultShortcut.displayString))")
+                    .accessibilityLabel("Reset shortcut to default (\(defaultShortcut.displayString))")
                     .transition(.opacity.combined(with: .scale))
                 }
             }
@@ -238,9 +245,8 @@ public struct HotkeyRecorderView: View {
     }
     
     private func resetToDefault() {
-        let def = KeyboardShortcut.defaultShortcut
-        shortcut = def
-        onChange?(def)
+        shortcut = defaultShortcut
+        onChange?(defaultShortcut)
         stopRecording()
     }
     

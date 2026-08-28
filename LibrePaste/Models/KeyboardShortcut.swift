@@ -197,15 +197,22 @@ public struct KeyboardShortcut: Codable, Equatable, Hashable {
         return "{\"keyCode\":\(keyCode),\"modifiers\":\(modifiers)}"
     }
     
-    public static func from(jsonString: String?) -> KeyboardShortcut {
+    /// Decodes a `KeyboardShortcut` from a JSON string, falling back to a specified default value if missing or invalid.
+    ///
+    /// - Parameters:
+    ///   - jsonString: The JSON string representation of the shortcut.
+    ///   - defaultValue: The fallback shortcut to use if decoding fails or the string is empty.
+    /// - Returns: A valid `KeyboardShortcut`.
+    public static func from(jsonString: String?, default defaultValue: KeyboardShortcut = .defaultShortcut) -> KeyboardShortcut {
         guard let jsonString = jsonString,
+              !jsonString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               let data = jsonString.data(using: .utf8) else {
-            return .defaultShortcut
+            return defaultValue
         }
         let decoder = JSONDecoder()
         if let shortcut = try? decoder.decode(KeyboardShortcut.self, from: data) {
             return shortcut
         }
-        return .defaultShortcut
+        return defaultValue
     }
 }

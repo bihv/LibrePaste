@@ -129,7 +129,10 @@ public struct GeneralSettingsTab: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    HotkeyRecorderView(shortcut: $pasteQueueNextShortcut) { newShortcut in
+                    HotkeyRecorderView(
+                        shortcut: $pasteQueueNextShortcut,
+                        defaultShortcut: .defaultPasteQueueNextShortcut
+                    ) { newShortcut in
                         store.saveSetting(key: "pasteQueueNextHotkey", value: newShortcut.toJsonString())
                         HotkeyManager.shared.updateShortcut(identifier: .pasteQueueNext, shortcut: newShortcut)
                     }
@@ -143,7 +146,10 @@ public struct GeneralSettingsTab: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    HotkeyRecorderView(shortcut: $toggleQueueHUDShortcut) { newShortcut in
+                    HotkeyRecorderView(
+                        shortcut: $toggleQueueHUDShortcut,
+                        defaultShortcut: .defaultToggleQueueHUDShortcut
+                    ) { newShortcut in
                         store.saveSetting(key: "toggleQueueHUDHotkey", value: newShortcut.toJsonString())
                         HotkeyManager.shared.updateShortcut(identifier: .toggleQueueHUD, shortcut: newShortcut)
                     }
@@ -274,19 +280,9 @@ public struct GeneralSettingsTab: View {
             launchAtLogin = SMAppService.mainApp.status == .enabled
         }
         
-        currentShortcut = KeyboardShortcut.from(jsonString: store.settings["globalHotkey"])
-        
-        if let nextHotkeyJson = store.settings["pasteQueueNextHotkey"], !nextHotkeyJson.isEmpty {
-            pasteQueueNextShortcut = KeyboardShortcut.from(jsonString: nextHotkeyJson)
-        } else {
-            pasteQueueNextShortcut = .defaultPasteQueueNextShortcut
-        }
-        
-        if let hudHotkeyJson = store.settings["toggleQueueHUDHotkey"], !hudHotkeyJson.isEmpty {
-            toggleQueueHUDShortcut = KeyboardShortcut.from(jsonString: hudHotkeyJson)
-        } else {
-            toggleQueueHUDShortcut = .defaultToggleQueueHUDShortcut
-        }
+        currentShortcut = KeyboardShortcut.from(jsonString: store.settings["globalHotkey"], default: .defaultShortcut)
+        pasteQueueNextShortcut = KeyboardShortcut.from(jsonString: store.settings["pasteQueueNextHotkey"], default: .defaultPasteQueueNextShortcut)
+        toggleQueueHUDShortcut = KeyboardShortcut.from(jsonString: store.settings["toggleQueueHUDHotkey"], default: .defaultToggleQueueHUDShortcut)
         
         pasteQueueOrder = store.settings["pasteQueueOrder"] ?? "fifo"
         pasteQueueRemoveAfterPaste = (store.settings["pasteQueueBehavior"] ?? "removeAfterPaste") == "removeAfterPaste"

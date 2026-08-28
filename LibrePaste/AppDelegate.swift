@@ -41,24 +41,20 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Setup Hotkey
         let savedHotkeyJson = DatabaseManager.shared.getSetting("globalHotkey")
-        let initialShortcut = KeyboardShortcut.from(jsonString: savedHotkeyJson)
+        let initialShortcut = KeyboardShortcut.from(jsonString: savedHotkeyJson, default: .defaultShortcut)
         HotkeyManager.shared.registerHotkey(shortcut: initialShortcut) { [weak self] in
             self?.toggleFloatingPanel()
         }
         
         // Setup Paste Queue Hotkeys
         let savedQueueNextHotkey = DatabaseManager.shared.getSetting("pasteQueueNextHotkey")
-        let queueNextShortcut = (savedQueueNextHotkey != nil && !savedQueueNextHotkey!.isEmpty)
-            ? KeyboardShortcut.from(jsonString: savedQueueNextHotkey)
-            : KeyboardShortcut.defaultPasteQueueNextShortcut
+        let queueNextShortcut = KeyboardShortcut.from(jsonString: savedQueueNextHotkey, default: .defaultPasteQueueNextShortcut)
         HotkeyManager.shared.registerHotkey(identifier: .pasteQueueNext, shortcut: queueNextShortcut) {
             PasteQueueManager.shared.pasteNext()
         }
         
         let savedQueueHudHotkey = DatabaseManager.shared.getSetting("toggleQueueHUDHotkey")
-        let queueHudShortcut = (savedQueueHudHotkey != nil && !savedQueueHudHotkey!.isEmpty)
-            ? KeyboardShortcut.from(jsonString: savedQueueHudHotkey)
-            : KeyboardShortcut.defaultToggleQueueHUDShortcut
+        let queueHudShortcut = KeyboardShortcut.from(jsonString: savedQueueHudHotkey, default: .defaultToggleQueueHUDShortcut)
         HotkeyManager.shared.registerHotkey(identifier: .toggleQueueHUD, shortcut: queueHudShortcut) {
             PasteQueueManager.shared.toggleHUD()
         }
