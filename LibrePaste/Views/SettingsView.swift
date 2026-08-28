@@ -16,16 +16,26 @@ public struct SettingsView: View {
     }
     
     public var body: some View {
-        Group {
-            switch state.activeTab {
-            case .general:
-                GeneralSettingsTab(store: store)
-            case .storage:
-                StorageSettingsTab(store: store)
-            case .privacy:
-                PrivacySettingsTab(store: store)
-            case .about:
-                AboutSettingsTab(store: store)
+        ZStack {
+            Group {
+                switch state.activeTab {
+                case .general:
+                    GeneralSettingsTab(store: store)
+                case .storage:
+                    StorageSettingsTab(store: store)
+                case .privacy:
+                    PrivacySettingsTab(store: store)
+                case .about:
+                    AboutSettingsTab(store: store)
+                }
+            }
+            
+            if store.isLocked {
+                LockOverlayView(store: store) {
+                    store.unlockApp()
+                }
+                .transition(.opacity)
+                .zIndex(999)
             }
         }
         .frame(width: 520, height: 490)

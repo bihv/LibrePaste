@@ -38,6 +38,11 @@ public final class FloatingPanel: NSPanel {
     }
     
     @objc private func windowDidResignKey() {
+        // Do not hide if system biometric/password authentication dialog is active
+        if SecurityManager.shared.isAuthenticating {
+            return
+        }
+        
         let isAnotherAppWindowKey = NSApp.windows.contains { win in
             win != self && win.isVisible && (win.isKeyWindow || win.isMainWindow) && !(win is FloatingPanel) && !win.className.contains("StatusBar")
         }

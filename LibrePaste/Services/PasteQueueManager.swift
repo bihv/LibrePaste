@@ -140,6 +140,13 @@ public final class PasteQueueManager {
     }
     
     public func pasteNext(targetAppBundleId: String? = nil, asPlainText: Bool = false, completion: (() -> Void)? = nil) {
+        SecurityManager.shared.checkLockOnReveal()
+        if SecurityManager.shared.isLocked {
+            NSSound.beep()
+            completion?()
+            return
+        }
+        
         guard let nextItem = peekNext() else {
             NSSound.beep()
             completion?()
@@ -211,6 +218,10 @@ public final class PasteQueueManager {
     // MARK: - HUD Controls
     
     public func showHUD() {
+        SecurityManager.shared.checkLockOnReveal()
+        if SecurityManager.shared.isLocked {
+            return
+        }
         setup()
         isHUDVisible = true
         floatingPanel?.showPanel()

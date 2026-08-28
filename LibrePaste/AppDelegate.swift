@@ -115,6 +115,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             name: .closeEditWindow,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAppDidLock),
+            name: .appDidLock,
+            object: nil
+        )
     }
     
     public func applicationWillTerminate(_ notification: Notification) {
@@ -213,6 +219,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         let pauseItem = NSMenuItem(title: "Pause Watcher", action: #selector(togglePauseWatcher), keyEquivalent: "")
         menu.addItem(pauseItem)
         
+        let lockItem = NSMenuItem(title: "Lock LibrePaste", action: #selector(lockAppNow), keyEquivalent: "")
+        menu.addItem(lockItem)
+        
         menu.addItem(NSMenuItem(title: "Settings...", action: #selector(handleOpenSettingsWindow), keyEquivalent: ","))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit LibrePaste", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
@@ -221,15 +230,50 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc private func pasteNextFromQueue() {
+        SecurityManager.shared.checkLockOnReveal()
+        if store.isLocked {
+            toggleFloatingPanel()
+            return
+        }
         PasteQueueManager.shared.pasteNext()
     }
     
     @objc private func toggleQueueHUD() {
+        SecurityManager.shared.checkLockOnReveal()
+        if store.isLocked {
+            toggleFloatingPanel()
+            return
+        }
         PasteQueueManager.shared.toggleHUD()
     }
     
     @objc private func togglePauseWatcher() {
+        SecurityManager.shared.checkLockOnReveal()
+        if store.isLocked {
+            toggleFloatingPanel()
+            return
+        }
         store.togglePause()
+    }
+    
+    @objc private func lockAppNow() {
+        store.lockAppNow()
+    }
+    
+    @objc private func handleAppDidLock() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if let win = self.settingsWindow, win.isVisible {
+                win.orderOut(nil)
+            }
+            if let win = self.previewWindow, win.isVisible {
+                win.orderOut(nil)
+            }
+            if let win = self.editWindow, win.isVisible {
+                win.orderOut(nil)
+            }
+            PasteQueueManager.shared.hideHUD()
+        }
     }
     
     // MARK: - Floating Panel
@@ -249,6 +293,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         if panel.isVisible && panel.alphaValue > 0 {
             panel.hidePanel()
         } else {
+            // Check if timeout has expired and app should be locked
+            SecurityManager.shared.checkLockOnReveal()
+            
             // Remember the currently active application so we can paste into it later
             if let frontmost = NSWorkspace.shared.frontmostApplication,
                frontmost.bundleIdentifier != Bundle.main.bundleIdentifier {
@@ -270,6 +317,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc private func handleShowFloatingPanel() {
+        SecurityManager.shared.checkLockOnReveal()
         floatingPanel?.showPanel()
     }
     
@@ -282,6 +330,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc public func handleOpenSettingsWindow() {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            
+            SecurityManager.shared.checkLockOnReveal()
             self.floatingPanel?.hidePanel(deactivateApp: false)
             self.isSettingsWindowOpen = true
             self.updateDockVisibility()
@@ -334,6 +384,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     public func openPreviewWindow(clip: ClipRecord) {
+        if store.isLocked {
+            toggleFloatingPanel()
+            return
+        }
+        
         // Toggle close if already open with the same clip
         if let win = previewWindow, win.isVisible, let current = currentPreviewClip, current.id == clip.id {
             closePreviewWindow()
@@ -422,6 +477,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     public func openEditWindow(clip: ClipRecord) {
+        if store.isLocked {
+            toggleFloatingPanel()
+            return
+        }
+        
         // Bring to front if already open with the same clip
         if let win = editWindow, win.isVisible, let current = currentEditClip, current.id == clip.id {
             if win.isMiniaturized {

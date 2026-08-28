@@ -210,6 +210,31 @@ public final class ClipboardStore {
         DatabaseManager.shared.setSetting(key: key, value: value)
         settings[key] = value
     }
+    
+    // MARK: - App Lock & Security
+    
+    public var isLocked: Bool {
+        SecurityManager.shared.isLocked
+    }
+    
+    public var isAppLockEnabled: Bool {
+        SecurityManager.shared.isEnabled
+    }
+    
+    public func unlockApp() {
+        Task { @MainActor in
+            _ = await SecurityManager.shared.authenticate()
+        }
+    }
+    
+    public func lockAppNow() {
+        SecurityManager.shared.lockNow()
+    }
+    
+    public func updateLockSettings(enabled: Bool, timeout: SecurityManager.AutoLockTimeout, lockOnSleep: Bool) {
+        SecurityManager.shared.updateSettings(enabled: enabled, timeout: timeout, lockOnSleep: lockOnSleep)
+        reloadSettings()
+    }
 }
 
 extension Notification.Name {

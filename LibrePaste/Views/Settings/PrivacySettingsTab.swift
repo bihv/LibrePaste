@@ -16,12 +16,75 @@ public struct PrivacySettingsTab: View {
     @State private var ignoreTransient: Bool = true
     @State private var ignoredApps: [[String: String]] = []
     
+    @State private var appLockEnabled: Bool = false
+    @State private var appLockTimeout: SecurityManager.AutoLockTimeout = .fiveMinutes
+    @State private var appLockOnSleep: Bool = true
+    
     public init(store: ClipboardStore) {
         self.store = store
     }
     
     public var body: some View {
         Form {
+            Section("App Lock & Security") {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Require Authentication")
+                                .font(.system(size: 13, weight: .medium))
+                            Text("Protect clipboard history using Touch ID or your Mac password.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Toggle("", isOn: $appLockEnabled)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .onChange(of: appLockEnabled) { oldValue, newValue in
+                                handleToggleAppLock(oldValue: oldValue, newValue: newValue)
+                            }
+                    }
+                    
+                    if appLockEnabled {
+                        Divider()
+                            .opacity(0.4)
+                        
+                        HStack {
+                            Text("Auto-Lock Inactivity")
+                                .font(.system(size: 13))
+                            Spacer()
+                            Picker("", selection: $appLockTimeout) {
+                                ForEach(SecurityManager.AutoLockTimeout.allCases) { item in
+                                    Text(item.displayName).tag(item)
+                                }
+                            }
+                            .labelsHidden()
+                            .frame(width: 170)
+                            .onChange(of: appLockTimeout) { _, _ in
+                                updateLockSettings()
+                            }
+                        }
+                        
+                        Toggle("Lock on System Sleep / Screen Lock", isOn: $appLockOnSleep)
+                            .font(.system(size: 13))
+                            .onChange(of: appLockOnSleep) { _, _ in
+                                updateLockSettings()
+                            }
+                        
+                        HStack(spacing: 6) {
+                            Image(systemName: SecurityManager.shared.biometricCapability.iconName)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(Color.accentColor)
+                            Text("Hardware: \(SecurityManager.shared.biometricCapability.title)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.top, 2)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+            
             Section("Security Filters") {
                 VStack(alignment: .leading, spacing: 6) {
                     Toggle("Ignore Password Managers", isOn: $ignorePasswords)
@@ -112,6 +175,11 @@ public struct PrivacySettingsTab: View {
     // MARK: - Helpers
     
     private func loadSettings() {
+        SecurityManager.shared.checkBiometricCapability()
+        appLockEnabled = SecurityManager.shared.isEnabled
+        appLockTimeout = SecurityManager.shared.timeout
+        appLockOnSleep = SecurityManager.shared.lockOnSleep
+        
         ignorePasswords = (store.settings["ignorePasswords"] ?? "true") == "true"
         ignoreTransient = (store.settings["ignoreTransient"] ?? "true") == "true"
         
@@ -120,6 +188,33 @@ public struct PrivacySettingsTab: View {
            let list = try? JSONSerialization.jsonObject(with: data) as? [[String: String]] {
             ignoredApps = list
         }
+    }
+    
+    private func handleToggleAppLock(oldValue: Bool, newValue: Bool) {
+        guard oldValue != newValue else { return }
+        
+        if !newValue && SecurityManager.shared.isEnabled {
+            // Turning OFF App Lock requires biometric/password authentication confirmation
+            Task { @MainActor in
+                let success = await SecurityManager.shared.authenticate(reason: "Authenticate to turn off App Lock")
+                if success {
+                    updateLockSettings()
+                } else {
+                    // Authentication failed or was cancelled -> keep App Lock enabled
+                    appLockEnabled = true
+                }
+            }
+        } else {
+            updateLockSettings()
+        }
+    }
+    
+    private func updateLockSettings() {
+        store.updateLockSettings(
+            enabled: appLockEnabled,
+            timeout: appLockTimeout,
+            lockOnSleep: appLockOnSleep
+        )
     }
     
     private func selectAppToIgnore() {

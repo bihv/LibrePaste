@@ -19,117 +19,128 @@ public struct ClipboardView: View {
     }
     
     public var body: some View {
-        VStack(spacing: 0) {
-            // Header Bar
-            headerBar
-            
-            Divider()
-                .opacity(0.3)
-            
-            // Body Content (Sidebar + Horizontal Cards)
-            HStack(spacing: 0) {
-                SidebarView(
-                    pinboards: store.pinboards,
-                    counts: store.pinboardCounts,
-                    selectedId: store.selectedPinboardId,
-                    isQueueSelected: store.isQueueSelected,
-                    queueCount: PasteQueueManager.shared.items.count,
-                    isCollapsed: $isSidebarCollapsed,
-                    onSelect: { pId in
-                        store.isQueueSelected = false
-                        store.selectedPinboardId = pId
-                        store.reloadClips()
-                        scrollTarget = ScrollTarget(index: 0)
-                    },
-                    onSelectQueue: {
-                        store.selectedPinboardId = nil
-                        store.isQueueSelected = true
-                        store.reloadClips()
-                        scrollTarget = ScrollTarget(index: 0)
-                    },
-                    onCreate: { name, color in
-                        store.createPinboard(name: name, color: color)
-                    },
-                    onUpdate: { id, name, color in
-                        store.updatePinboard(id: id, name: name, color: color)
-                    },
-                    onDelete: { id in
-                        store.deletePinboard(id: id)
-                    },
-                    onReorder: { orderedIds in
-                        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-                            store.reorderPinboards(orderedIds: orderedIds)
-                        }
-                    },
-                    onAssignClip: { clipId, pinboardId in
-                        store.addClipToPinboard(clipId: clipId, pinboardId: pinboardId)
-                    },
-                    onEnqueueClip: { clipId in
-                        if let clip = DatabaseManager.shared.getClip(id: clipId) {
-                            PasteQueueManager.shared.enqueue(clip: clip)
-                        }
-                    }
-                )
+        ZStack {
+            VStack(spacing: 0) {
+                // Header Bar
+                headerBar
                 
                 Divider()
                     .opacity(0.3)
                 
-                VStack(spacing: 0) {
-                    if store.isQueueSelected {
-                        queueControlBar
-                        Divider()
-                            .opacity(0.3)
-                    }
-                    
-                    ClipListView(
-                        clips: store.filteredClips,
+                // Body Content (Sidebar + Horizontal Cards)
+                HStack(spacing: 0) {
+                    SidebarView(
                         pinboards: store.pinboards,
-                        activeIndex: store.activeIndex,
-                        scrollTarget: scrollTarget,
-                        onSelect: { idx in
-                            store.activeIndex = idx
-                            store.isSearchFocused = false
-                            if let window = NSApp.keyWindow as? FloatingPanel {
-                                window.makeFirstResponder(window.contentView)
-                            }
+                        counts: store.pinboardCounts,
+                        selectedId: store.selectedPinboardId,
+                        isQueueSelected: store.isQueueSelected,
+                        queueCount: PasteQueueManager.shared.items.count,
+                        isCollapsed: $isSidebarCollapsed,
+                        onSelect: { pId in
+                            store.isQueueSelected = false
+                            store.selectedPinboardId = pId
+                            store.reloadClips()
+                            scrollTarget = ScrollTarget(index: 0)
                         },
-                        onPaste: { clip in
-                            store.paste(clip: clip)
+                        onSelectQueue: {
+                            store.selectedPinboardId = nil
+                            store.isQueueSelected = true
+                            store.reloadClips()
+                            scrollTarget = ScrollTarget(index: 0)
                         },
-                        onPastePlain: { clip in
-                            store.paste(clip: clip, asPlainText: true)
+                        onCreate: { name, color in
+                            store.createPinboard(name: name, color: color)
                         },
-                        onTogglePin: { clip in
-                            store.togglePin(clip)
+                        onUpdate: { id, name, color in
+                            store.updatePinboard(id: id, name: name, color: color)
                         },
                         onDelete: { id in
-                            store.deleteClip(id)
+                            store.deletePinboard(id: id)
                         },
-                        onEdit: { clip in
-                            NotificationCenter.default.post(name: .openEditWindow, object: clip)
+                        onReorder: { orderedIds in
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                                store.reorderPinboards(orderedIds: orderedIds)
+                            }
                         },
-                        onPreview: { clip in
-                            NotificationCenter.default.post(name: .openPreviewWindow, object: clip)
-                        },
-                        onAddToPinboard: { clipId, pinboardId in
+                        onAssignClip: { clipId, pinboardId in
                             store.addClipToPinboard(clipId: clipId, pinboardId: pinboardId)
                         },
-                        onEnqueue: { clip in
-                            PasteQueueManager.shared.enqueue(clip: clip)
-                        },
-                        onRemoveFromQueue: { clip in
-                            PasteQueueManager.shared.remove(clipId: clip.id)
+                        onEnqueueClip: { clipId in
+                            if let clip = DatabaseManager.shared.getClip(id: clipId) {
+                                PasteQueueManager.shared.enqueue(clip: clip)
+                            }
                         }
                     )
+                    
+                    Divider()
+                        .opacity(0.3)
+                    
+                    VStack(spacing: 0) {
+                        if store.isQueueSelected {
+                            queueControlBar
+                            Divider()
+                                .opacity(0.3)
+                        }
+                        
+                        ClipListView(
+                            clips: store.filteredClips,
+                            pinboards: store.pinboards,
+                            activeIndex: store.activeIndex,
+                            scrollTarget: scrollTarget,
+                            onSelect: { idx in
+                                store.activeIndex = idx
+                                store.isSearchFocused = false
+                                if let window = NSApp.keyWindow as? FloatingPanel {
+                                    window.makeFirstResponder(window.contentView)
+                                }
+                            },
+                            onPaste: { clip in
+                                store.paste(clip: clip)
+                            },
+                            onPastePlain: { clip in
+                                store.paste(clip: clip, asPlainText: true)
+                            },
+                            onTogglePin: { clip in
+                                store.togglePin(clip)
+                            },
+                            onDelete: { id in
+                                store.deleteClip(id)
+                            },
+                            onEdit: { clip in
+                                NotificationCenter.default.post(name: .openEditWindow, object: clip)
+                            },
+                            onPreview: { clip in
+                                NotificationCenter.default.post(name: .openPreviewWindow, object: clip)
+                            },
+                            onAddToPinboard: { clipId, pinboardId in
+                                store.addClipToPinboard(clipId: clipId, pinboardId: pinboardId)
+                            },
+                            onEnqueue: { clip in
+                                PasteQueueManager.shared.enqueue(clip: clip)
+                            },
+                            onRemoveFromQueue: { clip in
+                                PasteQueueManager.shared.remove(clipId: clip.id)
+                            }
+                        )
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                
+                Divider()
+                    .opacity(0.3)
+                
+                // Footer Shortcuts
+                footerBar
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
             
-            Divider()
-                .opacity(0.3)
-            
-            // Footer Shortcuts
-            footerBar
+            // App Lock Overlay
+            if store.isLocked {
+                LockOverlayView(store: store) {
+                    store.unlockApp()
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                .zIndex(999)
+            }
         }
         .frame(height: FloatingPanel.panelHeight)
         .background(.ultraThinMaterial)
@@ -171,6 +182,19 @@ public struct ClipboardView: View {
               window.alphaValue > 0,
               window.attachedSheet == nil else {
             return event
+        }
+        
+        // When app is locked, intercept all interactions
+        if store.isLocked {
+            if event.keyCode == 53 { // Esc
+                NotificationCenter.default.post(name: .hideFloatingPanel, object: nil)
+                return nil
+            }
+            if event.keyCode == 36 || event.keyCode == 76 || event.keyCode == 49 { // Return, Enter, Space
+                store.unlockApp()
+                return nil
+            }
+            return nil // Block all other keys
         }
         
         let isFieldEditor = window.firstResponder is NSTextView
