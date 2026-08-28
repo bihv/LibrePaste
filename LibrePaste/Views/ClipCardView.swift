@@ -540,7 +540,7 @@ private struct ClipCardDragPreview: View {
 
 // MARK: - Draggable Modifier
 
-private extension View {
+extension View {
     @ViewBuilder
     func clipCardDraggable(clip: ClipRecord) -> some View {
         if clip.type == .image, let path = clip.imagePath, !path.isEmpty {

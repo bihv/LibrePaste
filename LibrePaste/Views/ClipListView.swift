@@ -21,6 +21,10 @@ public struct ClipListView: View {
     public let clips: [ClipRecord]
     public let pinboards: [Pinboard]
     public let activeIndex: Int
+    public let layoutStyle: ClipLayoutStyle
+    public let showAppIcons: Bool
+    public let showShortcuts: Bool
+    public let previewLines: Int
     public let scrollTarget: ScrollTarget?
     public let isRevealed: ((Int64) -> Bool)?
     public let onSelect: (Int) -> Void
@@ -39,6 +43,10 @@ public struct ClipListView: View {
         clips: [ClipRecord],
         pinboards: [Pinboard],
         activeIndex: Int,
+        layoutStyle: ClipLayoutStyle = .cards,
+        showAppIcons: Bool = true,
+        showShortcuts: Bool = true,
+        previewLines: Int = 2,
         scrollTarget: ScrollTarget? = nil,
         isRevealed: ((Int64) -> Bool)? = nil,
         onSelect: @escaping (Int) -> Void,
@@ -56,6 +64,10 @@ public struct ClipListView: View {
         self.clips = clips
         self.pinboards = pinboards
         self.activeIndex = activeIndex
+        self.layoutStyle = layoutStyle
+        self.showAppIcons = showAppIcons
+        self.showShortcuts = showShortcuts
+        self.previewLines = previewLines
         self.scrollTarget = scrollTarget
         self.isRevealed = isRevealed
         self.onSelect = onSelect
@@ -73,24 +85,12 @@ public struct ClipListView: View {
     
     public var body: some View {
         ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 12) {
-                    ForEach(Array(zip(clips.indices, clips)), id: \.1.id) { index, clip in
-                        ClipCardView(
-                            clip: clip,
-                            index: index,
-                            isSelected: index == activeIndex,
-                            isRevealed: isRevealed?(clip.id) ?? false,
-                            pinboards: pinboards,
-                            onAction: { action in
-                                handleCardAction(action, clip: clip, index: index)
-                            }
-                        )
-                        .id(clip.id)
-                    }
+            Group {
+                if layoutStyle == .compactList {
+                    verticalCompactListView
+                } else {
+                    horizontalCardsView
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
             }
             .overlay {
                 if clips.isEmpty {
@@ -99,10 +99,65 @@ public struct ClipListView: View {
             }
             .onChange(of: scrollTarget) { _, target in
                 guard let target, target.index >= 0 && target.index < clips.count else { return }
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    proxy.scrollTo(clips[target.index].id, anchor: target.index == 0 ? .leading : nil)
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    let anchor: UnitPoint?
+                    if layoutStyle == .cards {
+                        anchor = target.index == 0 ? .leading : nil
+                    } else {
+                        anchor = target.index == 0 ? .top : nil
+                    }
+                    proxy.scrollTo(clips[target.index].id, anchor: anchor)
                 }
             }
+        }
+    }
+    
+    // MARK: - Layout Views
+    
+    private var horizontalCardsView: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            LazyHStack(spacing: 12) {
+                ForEach(Array(zip(clips.indices, clips)), id: \.1.id) { index, clip in
+                    ClipCardView(
+                        clip: clip,
+                        index: index,
+                        isSelected: index == activeIndex,
+                        isRevealed: isRevealed?(clip.id) ?? false,
+                        pinboards: pinboards,
+                        onAction: { action in
+                            handleCardAction(action, clip: clip, index: index)
+                        }
+                    )
+                    .id(clip.id)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+    }
+    
+    private var verticalCompactListView: some View {
+        ScrollView(.vertical, showsIndicators: true) {
+            LazyVStack(spacing: 3) {
+                ForEach(Array(zip(clips.indices, clips)), id: \.1.id) { index, clip in
+                    ClipCompactRowView(
+                        clip: clip,
+                        index: index,
+                        isSelected: index == activeIndex,
+                        isRevealed: isRevealed?(clip.id) ?? false,
+                        showAppIcon: showAppIcons,
+                        showShortcut: showShortcuts,
+                        previewLines: previewLines,
+                        pinboards: pinboards,
+                        onAction: { action in
+                            handleCardAction(action, clip: clip, index: index)
+                        }
+                    )
+                    .id(clip.id)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
         }
     }
     

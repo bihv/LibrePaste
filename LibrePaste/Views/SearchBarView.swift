@@ -59,7 +59,7 @@ public struct SearchBarView: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .strokeBorder(isFocused ? Color.accentColor.opacity(0.5) : Color.clear, lineWidth: 1)
         )
-        .frame(minWidth: 160, maxWidth: 240)
+        .frame(minWidth: 140, maxWidth: 320)
         .contentShape(Rectangle())
         .onTapGesture {
             isFocused = true

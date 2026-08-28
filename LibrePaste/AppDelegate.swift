@@ -14,6 +14,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     public let store = ClipboardStore()
     
     private var statusItem: NSStatusItem?
+    private var statusMenu: NSMenu?
     private var floatingPanel: FloatingPanel?
     private var settingsWindow: NSWindow?
     private var previewWindow: NSWindow?
@@ -117,6 +118,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             name: .appDidLock,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleDisplayModeChanged),
+            name: .displayModeChanged,
+            object: nil
+        )
     }
     
     public func applicationWillTerminate(_ notification: Notification) {
@@ -206,6 +213,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             button.title = "📋"
         }
         
+        button.target = self
+        button.action = #selector(statusItemClicked(_:))
+        button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Show LibrePaste (⌘⇧V)", action: #selector(toggleFloatingPanel), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Paste Next from Queue (⌥⌘V)", action: #selector(pasteNextFromQueue), keyEquivalent: ""))
@@ -222,7 +233,22 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit LibrePaste", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         
-        statusItem?.menu = menu
+        self.statusMenu = menu
+    }
+    
+    @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
+        guard let event = NSApp.currentEvent else {
+            toggleFloatingPanel()
+            return
+        }
+        
+        if event.type == .rightMouseUp || event.modifierFlags.contains(.control) {
+            statusItem?.menu = statusMenu
+            statusItem?.button?.performClick(nil)
+            statusItem?.menu = nil
+        } else {
+            toggleFloatingPanel()
+        }
     }
     
     @objc private func pasteNextFromQueue() {
@@ -304,7 +330,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             store.isSearchFocused = false
             store.reloadClips()
             
-            panel.showPanel()
+            panel.showPanel(mode: store.windowPresentationMode, layout: store.clipLayoutStyle, statusItem: statusItem)
         }
     }
     
@@ -314,11 +340,16 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     
     @objc private func handleShowFloatingPanel() {
         SecurityManager.shared.checkLockOnReveal()
-        floatingPanel?.showPanel()
+        floatingPanel?.showPanel(mode: store.windowPresentationMode, layout: store.clipLayoutStyle, statusItem: statusItem)
     }
     
     @objc private func handleToggleFloatingPanel() {
         toggleFloatingPanel()
+    }
+    
+    @objc private func handleDisplayModeChanged() {
+        guard let panel = floatingPanel else { return }
+        panel.reposition(mode: store.windowPresentationMode, layout: store.clipLayoutStyle, statusItem: statusItem, animated: panel.isVisible)
     }
     
     // MARK: - Settings Window

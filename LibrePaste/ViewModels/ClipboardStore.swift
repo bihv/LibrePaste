@@ -47,6 +47,13 @@ public final class ClipboardStore {
     public var storageStats: StorageStats? = nil
     public var settings: [String: String] = [:]
     
+    // MARK: - Display & Layout Modes
+    public var windowPresentationMode: WindowPresentationMode = .bottomShelf
+    public var clipLayoutStyle: ClipLayoutStyle = .cards
+    public var compactShowAppIcons: Bool = true
+    public var compactShowShortcuts: Bool = true
+    public var compactPreviewLines: Int = 2
+    
     public var lastActiveAppBundleId: String? = nil
     
     public init() {
@@ -124,7 +131,35 @@ public final class ClipboardStore {
             DatabaseManager.shared.purgeSensitiveClips(olderThanHours: autoPurgeHours)
         }
         
+        // Display mode settings
+        let modeRaw = settings["windowPresentationMode"] ?? WindowPresentationMode.bottomShelf.rawValue
+        windowPresentationMode = WindowPresentationMode(rawValue: modeRaw) ?? .bottomShelf
+        
+        let layoutRaw = settings["clipLayoutStyle"] ?? ClipLayoutStyle.cards.rawValue
+        clipLayoutStyle = ClipLayoutStyle(rawValue: layoutRaw) ?? .cards
+        
+        compactShowAppIcons = (settings["compactShowAppIcons"] ?? "true") == "true"
+        compactShowShortcuts = (settings["compactShowShortcuts"] ?? "true") == "true"
+        compactPreviewLines = Int(settings["compactPreviewLines"] ?? "2") ?? 2
+        
         reloadCustomSensitiveRules()
+    }
+    
+    public func setWindowPresentationMode(_ mode: WindowPresentationMode) {
+        windowPresentationMode = mode
+        saveSetting(key: "windowPresentationMode", value: mode.rawValue)
+        NotificationCenter.default.post(name: .displayModeChanged, object: nil)
+    }
+    
+    public func setClipLayoutStyle(_ style: ClipLayoutStyle) {
+        clipLayoutStyle = style
+        saveSetting(key: "clipLayoutStyle", value: style.rawValue)
+        NotificationCenter.default.post(name: .displayModeChanged, object: nil)
+    }
+    
+    public func toggleClipLayoutStyle() {
+        let newStyle: ClipLayoutStyle = (clipLayoutStyle == .cards) ? .compactList : .cards
+        setClipLayoutStyle(newStyle)
     }
     
     public func reloadStats() {
@@ -302,4 +337,5 @@ extension Notification.Name {
     public static let toggleFloatingPanel = Notification.Name("toggleFloatingPanel")
     public static let panelDidShow = Notification.Name("panelDidShow")
     public static let panelDidHide = Notification.Name("panelDidHide")
+    public static let displayModeChanged = Notification.Name("displayModeChanged")
 }

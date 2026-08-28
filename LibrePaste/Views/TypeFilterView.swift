@@ -9,9 +9,11 @@ import SwiftUI
 
 public struct TypeFilterView: View {
     @Binding public var selection: FilterType
+    public var isCompact: Bool
     
-    public init(selection: Binding<FilterType>) {
+    public init(selection: Binding<FilterType>, isCompact: Bool = false) {
         self._selection = selection
+        self.isCompact = isCompact
     }
     
     public var body: some View {
@@ -26,10 +28,15 @@ public struct TypeFilterView: View {
                     HStack(spacing: 4) {
                         Image(systemName: type.systemImage)
                             .font(.system(size: 10, weight: isSelected ? .bold : .regular))
-                        Text(type.displayName)
-                            .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                        
+                        if !isCompact {
+                            Text(type.displayName)
+                                .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
+                        }
                     }
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, isCompact ? 6 : 8)
                     .padding(.vertical, 4)
                     .foregroundStyle(isSelected ? Color.primary : Color.secondary)
                     .background(
@@ -38,6 +45,7 @@ public struct TypeFilterView: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .help("Filter by \(type.displayName)")
             }
         }
         .padding(2)

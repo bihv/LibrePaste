@@ -14,6 +14,11 @@ public struct GeneralSettingsTab: View {
     
     @State private var launchAtLogin: Bool = false
     @State private var showInDock: Bool = true
+    @State private var windowPresentationMode: WindowPresentationMode = .bottomShelf
+    @State private var clipLayoutStyle: ClipLayoutStyle = .cards
+    @State private var compactShowAppIcons: Bool = true
+    @State private var compactShowShortcuts: Bool = true
+    @State private var compactPreviewLines: Int = 2
     @State private var pasteTarget: String = "direct"
     @State private var hideAfterPaste: Bool = true
     @State private var isAccessibilityEnabled: Bool = PasteSimulator.isAccessibilityGranted()
@@ -32,7 +37,51 @@ public struct GeneralSettingsTab: View {
     
     public var body: some View {
         Form {
-            Section("Startup & Display") {
+            Section("Interface & Appearance") {
+                Picker("Window Presentation", selection: $windowPresentationMode) {
+                    ForEach(WindowPresentationMode.allCases) { mode in
+                        Label(mode.displayName, systemImage: mode.systemImage).tag(mode)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: windowPresentationMode) { _, val in
+                    store.setWindowPresentationMode(val)
+                }
+                
+                Picker("Default Clip Layout", selection: $clipLayoutStyle) {
+                    ForEach(ClipLayoutStyle.allCases) { style in
+                        Label(style.displayName, systemImage: style.systemImage).tag(style)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: clipLayoutStyle) { _, val in
+                    store.setClipLayoutStyle(val)
+                }
+                
+                Toggle("Show App Icons in Compact List", isOn: $compactShowAppIcons)
+                    .onChange(of: compactShowAppIcons) { _, val in
+                        store.compactShowAppIcons = val
+                        store.saveSetting(key: "compactShowAppIcons", value: val ? "true" : "false")
+                    }
+                
+                Toggle("Show Number Shortcut Badges (1-9)", isOn: $compactShowShortcuts)
+                    .onChange(of: compactShowShortcuts) { _, val in
+                        store.compactShowShortcuts = val
+                        store.saveSetting(key: "compactShowShortcuts", value: val ? "true" : "false")
+                    }
+                
+                Picker("Preview Lines in Compact List", selection: $compactPreviewLines) {
+                    Text("1 Line (Ultra Dense)").tag(1)
+                    Text("2 Lines (Standard)").tag(2)
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: compactPreviewLines) { _, val in
+                    store.compactPreviewLines = val
+                    store.saveSetting(key: "compactPreviewLines", value: "\(val)")
+                }
+            }
+            
+            Section("Startup & Shortcuts") {
                 Toggle("Launch at Login", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, newValue in
                         updateLaunchAtLogin(newValue)
@@ -271,6 +320,12 @@ public struct GeneralSettingsTab: View {
     // MARK: - Helpers
     
     private func loadSettings() {
+        windowPresentationMode = store.windowPresentationMode
+        clipLayoutStyle = store.clipLayoutStyle
+        compactShowAppIcons = store.compactShowAppIcons
+        compactShowShortcuts = store.compactShowShortcuts
+        compactPreviewLines = store.compactPreviewLines
+        
         let savedTarget = store.settings["pasteTarget"] ?? "direct"
         pasteTarget = (savedTarget == "clipboard") ? "clipboard" : "direct"
         showInDock = (store.settings["showInDock"] ?? "true") == "true"

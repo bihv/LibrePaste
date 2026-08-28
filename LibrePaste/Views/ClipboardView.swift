@@ -21,13 +21,13 @@ public struct ClipboardView: View {
     public var body: some View {
         ZStack {
             VStack(spacing: 0) {
-                // Header Bar
+                // Header Bar (Adaptive ViewThatFits)
                 headerBar
                 
                 Divider()
                     .opacity(0.3)
                 
-                // Body Content (Sidebar + Horizontal Cards)
+                // Body Content (Sidebar + Horizontal Cards / Vertical List)
                 HStack(spacing: 0) {
                     SidebarView(
                         pinboards: store.pinboards,
@@ -86,6 +86,10 @@ public struct ClipboardView: View {
                             clips: store.filteredClips,
                             pinboards: store.pinboards,
                             activeIndex: store.activeIndex,
+                            layoutStyle: store.clipLayoutStyle,
+                            showAppIcons: store.compactShowAppIcons,
+                            showShortcuts: store.compactShowShortcuts,
+                            previewLines: store.compactPreviewLines,
                             scrollTarget: scrollTarget,
                             isRevealed: { store.isRevealed(clipId: $0) },
                             onSelect: { idx in
@@ -133,7 +137,7 @@ public struct ClipboardView: View {
                 Divider()
                     .opacity(0.3)
                 
-                // Footer Shortcuts
+                // Footer Shortcuts (Adaptive ViewThatFits)
                 footerBar
             }
             
@@ -146,9 +150,12 @@ public struct ClipboardView: View {
                 .zIndex(999)
             }
         }
-        .frame(height: FloatingPanel.panelHeight)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.ultraThinMaterial)
         .onAppear {
+            if store.windowPresentationMode == .menuBarPopover || store.windowPresentationMode == .atCursor || store.clipLayoutStyle == .compactList {
+                isSidebarCollapsed = true
+            }
             if keyEventMonitor == nil {
                 keyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                     handleGlobalKeyEvent(event)
@@ -169,6 +176,14 @@ public struct ClipboardView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .panelDidShow)) { _ in
             store.isSearchFocused = false
+            if store.windowPresentationMode == .menuBarPopover || store.windowPresentationMode == .atCursor || store.clipLayoutStyle == .compactList {
+                isSidebarCollapsed = true
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .displayModeChanged)) { _ in
+            if store.windowPresentationMode == .menuBarPopover || store.windowPresentationMode == .atCursor || store.clipLayoutStyle == .compactList {
+                isSidebarCollapsed = true
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .showFloatingPanel)) { _ in
             store.isSearchFocused = false
@@ -275,8 +290,8 @@ public struct ClipboardView: View {
             }
         }
         
-        // 7. Left Arrow (keyCode 123)
-        if event.keyCode == 123 {
+        // 7. Arrow Navigation (Left/Up = previous, Right/Down = next)
+        if event.keyCode == 123 || event.keyCode == 126 { // Left or Up
             if store.activeIndex > 0 {
                 store.activeIndex -= 1
                 scrollTarget = ScrollTarget(index: store.activeIndex)
@@ -284,8 +299,7 @@ public struct ClipboardView: View {
             return nil
         }
         
-        // 8. Right Arrow (keyCode 124)
-        if event.keyCode == 124 {
+        if event.keyCode == 124 || event.keyCode == 125 { // Right or Down
             if store.activeIndex < store.filteredClips.count - 1 {
                 store.activeIndex += 1
                 scrollTarget = ScrollTarget(index: store.activeIndex)
@@ -342,64 +356,153 @@ public struct ClipboardView: View {
     // MARK: - Header & Footer
     
     private var headerBar: some View {
-        HStack(spacing: 12) {
-            // Brand Logo
-            HStack(spacing: 7) {
-                Image("AppLogo")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 18, height: 18)
-                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+        ViewThatFits(in: .horizontal) {
+            wideHeaderBar
+            mediumHeaderBar
+            compactHeaderBar
+        }
+    }
+    
+    private var wideHeaderBar: some View {
+        HStack(spacing: 8) {
+            brandLogo(showText: true)
+            WindowDragGripView()
+                .frame(width: 18, height: 22)
+            TypeFilterView(selection: $store.filter, isCompact: false)
+            Spacer(minLength: 8)
+            searchBar(minWidth: 180, maxWidth: 320)
+            layoutToggleButton
+            pauseToggleButton(showText: true)
+            settingsButton
+            clearAllButton(isCompact: false)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+    }
+    
+    private var mediumHeaderBar: some View {
+        HStack(spacing: 6) {
+            brandLogo(showText: true)
+            WindowDragGripView()
+                .frame(width: 18, height: 22)
+            TypeFilterView(selection: $store.filter, isCompact: true)
+            Spacer(minLength: 6)
+            searchBar(minWidth: 160, maxWidth: 260)
+            layoutToggleButton
+            pauseToggleButton(showText: false)
+            settingsButton
+            clearAllButton(isCompact: true)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+    
+    private var compactHeaderBar: some View {
+        HStack(spacing: 4) {
+            brandLogo(showText: false)
+            WindowDragGripView()
+                .frame(width: 18, height: 22)
+            TypeFilterView(selection: $store.filter, isCompact: true)
+            Spacer(minLength: 4)
+            searchBar(minWidth: 140, maxWidth: 200)
+            layoutToggleButton
+            pauseToggleButton(showText: false)
+            settingsButton
+            clearAllButton(isCompact: true)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+    }
+    
+    private func brandLogo(showText: Bool) -> some View {
+        HStack(spacing: 6) {
+            Image("AppLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 18, height: 18)
+                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            
+            if showText {
                 Text("LibrePaste")
                     .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
             }
-            .padding(.leading, 8)
-            
-            // Type Filter
-            TypeFilterView(selection: $store.filter)
-            
-            Spacer()
-            
-            // Search Bar
-            SearchBarView(text: $store.query, isFocused: $store.isSearchFocused) {
-                store.query = ""
+        }
+        .fixedSize(horizontal: true, vertical: false)
+    }
+    
+    private func searchBar(minWidth: CGFloat, maxWidth: CGFloat) -> some View {
+        SearchBarView(text: $store.query, isFocused: $store.isSearchFocused) {
+            store.query = ""
+        }
+        .frame(minWidth: minWidth, maxWidth: maxWidth)
+    }
+    
+    private var layoutToggleButton: some View {
+        Button(action: {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                store.toggleClipLayoutStyle()
             }
-            
-            // Pause / Incognito Toggle
-            Button(action: { store.togglePause() }) {
-                HStack(spacing: 4) {
-                    Image(systemName: store.isPaused ? "shield.slash.fill" : "shield.fill")
-                        .font(.system(size: 12))
-                    if store.isPaused {
-                        Text("Paused")
-                            .font(.system(size: 11, weight: .semibold))
-                    }
-                }
-                .foregroundStyle(store.isPaused ? Color.orange : Color.secondary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
-                .background(store.isPaused ? Color.orange.opacity(0.14) : Color.primary.opacity(0.04))
+        }) {
+            Image(systemName: store.clipLayoutStyle == .cards ? "list.bullet" : "rectangle.grid.1x2")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .padding(6)
+                .background(Color.primary.opacity(0.04))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+        .help(store.clipLayoutStyle == .cards ? "Switch to Vertical Compact List" : "Switch to Horizontal Cards")
+    }
+    
+    private func pauseToggleButton(showText: Bool) -> some View {
+        Button(action: { store.togglePause() }) {
+            HStack(spacing: 4) {
+                Image(systemName: store.isPaused ? "shield.slash.fill" : "shield.fill")
+                    .font(.system(size: 12))
+                if store.isPaused && showText {
+                    Text("Paused")
+                        .font(.system(size: 11, weight: .semibold))
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                }
             }
-            .buttonStyle(.plain)
-            .help(store.isPaused ? "Resume Clipboard Watcher" : "Pause Clipboard Watcher (Incognito)")
-            
-            // Settings Button
-            Button(action: {
-                NotificationCenter.default.post(name: .openSettingsWindow, object: nil)
-            }) {
-                Image(systemName: "gearshape")
+            .foregroundStyle(store.isPaused ? Color.orange : Color.secondary)
+            .padding(.horizontal, (store.isPaused && showText) ? 8 : 6)
+            .padding(.vertical, 5)
+            .background(store.isPaused ? Color.orange.opacity(0.14) : Color.primary.opacity(0.04))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+        .help(store.isPaused ? "Resume Clipboard Watcher" : "Pause Clipboard Watcher (Incognito)")
+    }
+    
+    private var settingsButton: some View {
+        Button(action: {
+            NotificationCenter.default.post(name: .openSettingsWindow, object: nil)
+        }) {
+            Image(systemName: "gearshape")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .padding(6)
+                .background(Color.primary.opacity(0.04))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+        .help("Open Settings")
+    }
+    
+    private func clearAllButton(isCompact: Bool) -> some View {
+        Button(action: { store.clearAll() }) {
+            if isCompact {
+                Image(systemName: "trash")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .padding(6)
                     .background(Color.primary.opacity(0.04))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
-            }
-            .buttonStyle(.plain)
-            .help("Open Settings")
-            
-            // Clear All Button
-            Button(action: { store.clearAll() }) {
+            } else {
                 Text("Clear All")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
@@ -407,12 +510,12 @@ public struct ClipboardView: View {
                     .padding(.vertical, 5)
                     .background(Color.primary.opacity(0.04))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
             }
-            .buttonStyle(.plain)
-            .help("Clear All Unpinned Clips")
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .buttonStyle(.plain)
+        .help("Clear All Unpinned Clips")
     }
     
     private var queueControlBar: some View {
@@ -541,10 +644,20 @@ public struct ClipboardView: View {
         .background(Color.primary.opacity(0.02))
     }
     
+    // MARK: - Footer Bar
+    
     private var footerBar: some View {
-        HStack(spacing: 16) {
+        ViewThatFits(in: .horizontal) {
+            wideFooterBar
+            mediumFooterBar
+            compactFooterBar
+        }
+    }
+    
+    private var wideFooterBar: some View {
+        HStack(spacing: 12) {
             shortcutHint("1-9", "Quick Paste")
-            shortcutHint("← →", "Navigate")
+            shortcutHint(store.clipLayoutStyle == .compactList ? "↑ ↓" : "← →", "Navigate")
             shortcutHint("↵", "Paste")
             shortcutHint("⌥↵", "Plain Text")
             shortcutHint("Space", "Preview")
@@ -558,18 +671,48 @@ public struct ClipboardView: View {
         .padding(.vertical, 6)
     }
     
+    private var mediumFooterBar: some View {
+        HStack(spacing: 10) {
+            shortcutHint("1-9", "Quick Paste")
+            shortcutHint(store.clipLayoutStyle == .compactList ? "↑ ↓" : "← →", "Navigate")
+            shortcutHint("↵", "Paste")
+            shortcutHint("⌥↵", "Plain")
+            shortcutHint("Space", "Preview")
+            shortcutHint("⌘F", "Search")
+            shortcutHint("Esc", "Hide")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+    }
+    
+    private var compactFooterBar: some View {
+        HStack(spacing: 8) {
+            shortcutHint("1-9", "Paste")
+            shortcutHint(store.clipLayoutStyle == .compactList ? "↑ ↓" : "← →", "Nav")
+            shortcutHint("↵", "Paste")
+            shortcutHint("Space", "Preview")
+            shortcutHint("Esc", "Hide")
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+    }
+    
     private func shortcutHint(_ key: String, _ label: String) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 3.5) {
             Text(key)
                 .font(.system(size: 9.5, weight: .bold, design: .monospaced))
                 .padding(.horizontal, 4)
                 .padding(.vertical, 1.5)
                 .background(Color.primary.opacity(0.08))
                 .clipShape(RoundedRectangle(cornerRadius: 3.5))
+                .fixedSize(horizontal: true, vertical: false)
             Text(label)
                 .font(.system(size: 10, weight: .regular))
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
         }
+        .fixedSize(horizontal: true, vertical: false)
     }
 }
 
