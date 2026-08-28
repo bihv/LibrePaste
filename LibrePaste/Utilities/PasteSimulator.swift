@@ -44,15 +44,12 @@ public final class PasteSimulator {
                 }
             }
         case .richtext:
-            var wrote = false
             if let rtf = clip.rtf, let rtfData = rtf.data(using: .utf8) {
                 pasteboard.setData(rtfData, forType: .rtf)
-                wrote = true
             }
             if clip.content.contains("<") && clip.content.contains(">"),
                let htmlData = clip.content.data(using: .utf8) {
                 pasteboard.setData(htmlData, forType: .html)
-                wrote = true
             }
             let plain: String
             if clip.content.contains("<") && clip.content.contains(">") {
@@ -156,5 +153,40 @@ public final class PasteSimulator {
     public static func requestAccessibilityPermissions() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(options)
+    }
+    
+    private var cachedPlaySound: Bool? = nil
+    private var cachedSoundName: String? = nil
+    
+    public func invalidateSoundCache() {
+        cachedPlaySound = nil
+        cachedSoundName = nil
+    }
+    
+    /// Play audio feedback on paste if enabled
+    public func playPasteSound() {
+        let playSound: Bool
+        if let cached = cachedPlaySound {
+            playSound = cached
+        } else {
+            let setting = DatabaseManager.shared.getSetting("playSoundOnPaste") ?? "true"
+            playSound = (setting == "true")
+            cachedPlaySound = playSound
+        }
+        guard playSound else { return }
+        
+        let soundName: String
+        if let cached = cachedSoundName {
+            soundName = cached
+        } else {
+            soundName = DatabaseManager.shared.getSetting("pasteSoundName") ?? "Tink"
+            cachedSoundName = soundName
+        }
+        if soundName.lowercased() == "none" { return }
+        
+        if let sound = NSSound(named: soundName) {
+            sound.volume = 0.5
+            sound.play()
+        }
     }
 }

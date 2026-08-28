@@ -16,6 +16,8 @@ public enum ClipAction {
     case edit
     case preview
     case addToPinboard(Int64?)
+    case enqueue
+    case removeFromQueue
 }
 
 public struct ClipCardView: View {
@@ -54,7 +56,9 @@ public struct ClipCardView: View {
         onDelete: @escaping () -> Void,
         onEdit: @escaping () -> Void,
         onPreview: @escaping () -> Void,
-        onAddToPinboard: @escaping (Int64?) -> Void
+        onAddToPinboard: @escaping (Int64?) -> Void,
+        onEnqueue: (() -> Void)? = nil,
+        onRemoveFromQueue: (() -> Void)? = nil
     ) {
         self.clip = clip
         self.index = index
@@ -70,6 +74,8 @@ public struct ClipCardView: View {
             case .edit: onEdit()
             case .preview: onPreview()
             case .addToPinboard(let pId): onAddToPinboard(pId)
+            case .enqueue: onEnqueue?()
+            case .removeFromQueue: onRemoveFromQueue?()
             }
         }
     }
@@ -277,6 +283,19 @@ public struct ClipCardView: View {
         
         Button(action: { onAction(.togglePin) }) {
             Label(clip.pinned ? "Unpin" : "Pin to Top", systemImage: clip.pinned ? "pin.slash" : "pin")
+        }
+        
+        Divider()
+        
+        let isInQueue = PasteQueueManager.shared.contains(clipId: clip.id)
+        if isInQueue {
+            Button(action: { onAction(.removeFromQueue) }) {
+                Label("Remove from Paste Queue", systemImage: "minus.rectangle")
+            }
+        } else {
+            Button(action: { onAction(.enqueue) }) {
+                Label("Add to Paste Queue", systemImage: "list.bullet.clipboard")
+            }
         }
         
         Divider()

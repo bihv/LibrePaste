@@ -110,7 +110,9 @@ public final class DatabaseManager: @unchecked Sendable {
             "pasteTarget": "direct",
             "hideAfterPaste": "true",
             "ignorePasswords": "true",
-            "ignoreTransient": "true"
+            "ignoreTransient": "true",
+            "playSoundOnPaste": "true",
+            "pasteSoundName": "Tink"
         ]
         
         for (k, v) in defaults {

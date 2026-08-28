@@ -231,8 +231,8 @@ nonisolated public struct ClipRecord: Identifiable, Codable, Equatable, Hashable
 
 // MARK: - ClipRecord Transferable
 
-extension ClipRecord: Transferable {
-    public static var transferRepresentation: some TransferRepresentation {
+extension ClipRecord: @preconcurrency Transferable {
+    @MainActor public static var transferRepresentation: some TransferRepresentation {
         ProxyRepresentation(exporting: \.content)
         CodableRepresentation(contentType: .json)
     }
@@ -259,6 +259,7 @@ nonisolated public struct Pinboard: Identifiable, Codable, Equatable, Hashable, 
         self.sortOrder = sortOrder
     }
     
+    @MainActor
     public var swiftUIColor: Color {
         Color(hex: color) ?? Color.indigo
     }
@@ -266,8 +267,8 @@ nonisolated public struct Pinboard: Identifiable, Codable, Equatable, Hashable, 
 
 // MARK: - Pinboard Transferable
 
-extension Pinboard: Transferable {
-    public static var transferRepresentation: some TransferRepresentation {
+extension Pinboard: @preconcurrency Transferable {
+    @MainActor public static var transferRepresentation: some TransferRepresentation {
         CodableRepresentation(contentType: .json)
     }
 }
@@ -299,7 +300,7 @@ public struct StorageStats: Codable, Equatable {
 
 // Extension to parse Hex color to SwiftUI Color
 extension Color {
-    init?(hex: String) {
+    nonisolated init?(hex: String) {
         var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
         hexSanitized = hexSanitized.replacingOccurrences(of: "#", with: "")
         

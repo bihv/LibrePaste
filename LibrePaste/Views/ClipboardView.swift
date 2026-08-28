@@ -32,9 +32,18 @@ public struct ClipboardView: View {
                     pinboards: store.pinboards,
                     counts: store.pinboardCounts,
                     selectedId: store.selectedPinboardId,
+                    isQueueSelected: store.isQueueSelected,
+                    queueCount: PasteQueueManager.shared.items.count,
                     isCollapsed: $isSidebarCollapsed,
                     onSelect: { pId in
+                        store.isQueueSelected = false
                         store.selectedPinboardId = pId
+                        store.reloadClips()
+                        scrollTarget = ScrollTarget(index: 0)
+                    },
+                    onSelectQueue: {
+                        store.selectedPinboardId = nil
+                        store.isQueueSelected = true
                         store.reloadClips()
                         scrollTarget = ScrollTarget(index: 0)
                     },
@@ -54,46 +63,65 @@ public struct ClipboardView: View {
                     },
                     onAssignClip: { clipId, pinboardId in
                         store.addClipToPinboard(clipId: clipId, pinboardId: pinboardId)
+                    },
+                    onEnqueueClip: { clipId in
+                        if let clip = DatabaseManager.shared.getClip(id: clipId) {
+                            PasteQueueManager.shared.enqueue(clip: clip)
+                        }
                     }
                 )
                 
                 Divider()
                     .opacity(0.3)
                 
-                ClipListView(
-                    clips: store.filteredClips,
-                    pinboards: store.pinboards,
-                    activeIndex: store.activeIndex,
-                    scrollTarget: scrollTarget,
-                    onSelect: { idx in
-                        store.activeIndex = idx
-                        store.isSearchFocused = false
-                        if let window = NSApp.keyWindow as? FloatingPanel {
-                            window.makeFirstResponder(window.contentView)
-                        }
-                    },
-                    onPaste: { clip in
-                        store.paste(clip: clip)
-                    },
-                    onPastePlain: { clip in
-                        store.paste(clip: clip, asPlainText: true)
-                    },
-                    onTogglePin: { clip in
-                        store.togglePin(clip)
-                    },
-                    onDelete: { id in
-                        store.deleteClip(id)
-                    },
-                    onEdit: { clip in
-                        NotificationCenter.default.post(name: .openEditWindow, object: clip)
-                    },
-                    onPreview: { clip in
-                        NotificationCenter.default.post(name: .openPreviewWindow, object: clip)
-                    },
-                    onAddToPinboard: { clipId, pinboardId in
-                        store.addClipToPinboard(clipId: clipId, pinboardId: pinboardId)
+                VStack(spacing: 0) {
+                    if store.isQueueSelected {
+                        queueControlBar
+                        Divider()
+                            .opacity(0.3)
                     }
-                )
+                    
+                    ClipListView(
+                        clips: store.filteredClips,
+                        pinboards: store.pinboards,
+                        activeIndex: store.activeIndex,
+                        scrollTarget: scrollTarget,
+                        onSelect: { idx in
+                            store.activeIndex = idx
+                            store.isSearchFocused = false
+                            if let window = NSApp.keyWindow as? FloatingPanel {
+                                window.makeFirstResponder(window.contentView)
+                            }
+                        },
+                        onPaste: { clip in
+                            store.paste(clip: clip)
+                        },
+                        onPastePlain: { clip in
+                            store.paste(clip: clip, asPlainText: true)
+                        },
+                        onTogglePin: { clip in
+                            store.togglePin(clip)
+                        },
+                        onDelete: { id in
+                            store.deleteClip(id)
+                        },
+                        onEdit: { clip in
+                            NotificationCenter.default.post(name: .openEditWindow, object: clip)
+                        },
+                        onPreview: { clip in
+                            NotificationCenter.default.post(name: .openPreviewWindow, object: clip)
+                        },
+                        onAddToPinboard: { clipId, pinboardId in
+                            store.addClipToPinboard(clipId: clipId, pinboardId: pinboardId)
+                        },
+                        onEnqueue: { clip in
+                            PasteQueueManager.shared.enqueue(clip: clip)
+                        },
+                        onRemoveFromQueue: { clip in
+                            PasteQueueManager.shared.remove(clipId: clip.id)
+                        }
+                    )
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             
@@ -266,6 +294,20 @@ public struct ClipboardView: View {
             }
         }
         
+        // 12. 'Q' / 'q' (keyCode 12) -> Add to or remove from Paste Queue
+        let hasNoSpecialModifiers = event.modifierFlags.intersection([.command, .option, .control]).isEmpty
+        if hasNoSpecialModifiers && (chars == "q" || chars == "Q" || event.keyCode == 12) {
+            if store.activeIndex >= 0 && store.activeIndex < store.filteredClips.count {
+                let clip = store.filteredClips[store.activeIndex]
+                if PasteQueueManager.shared.contains(clipId: clip.id) {
+                    PasteQueueManager.shared.remove(clipId: clip.id)
+                } else {
+                    PasteQueueManager.shared.enqueue(clip: clip)
+                }
+                return nil
+            }
+        }
+        
         return event
     }
     
@@ -345,6 +387,132 @@ public struct ClipboardView: View {
         .padding(.vertical, 10)
     }
     
+    private var queueControlBar: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 6) {
+                Image(systemName: "list.bullet.clipboard")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.accentColor)
+                Text("Paste Queue")
+                    .font(.system(size: 13, weight: .bold))
+                
+                let count = PasteQueueManager.shared.items.count
+                Text("\(count) item\(count == 1 ? "" : "s")")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            
+            // FIFO / LIFO toggle
+            Button(action: {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    PasteQueueManager.shared.order = (PasteQueueManager.shared.order == .fifo) ? .lifo : .fifo
+                    PasteQueueManager.shared.saveQueueToSettings()
+                }
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.up.arrow.down")
+                        .font(.system(size: 10))
+                    Text(PasteQueueManager.shared.order.shortName)
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.primary.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .help("Toggle Queue Order (FIFO / LIFO)")
+            
+            // Collect Mode (REC)
+            Button(action: {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    PasteQueueManager.shared.toggleCollectMode()
+                }
+            }) {
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(PasteQueueManager.shared.isCollectModeActive ? Color.red : Color.secondary.opacity(0.5))
+                        .frame(width: 7, height: 7)
+                    Text("Collect Mode")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(PasteQueueManager.shared.isCollectModeActive ? Color.red : .primary)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(PasteQueueManager.shared.isCollectModeActive ? Color.red.opacity(0.12) : Color.primary.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .help("When active, all copied clips are automatically added to the queue")
+            
+            Spacer()
+            
+            // Start Sequential Paste / Paste Next
+            Button(action: {
+                NotificationCenter.default.post(name: .hideFloatingPanel, object: nil)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    PasteQueueManager.shared.pasteNext()
+                }
+            }) {
+                HStack(spacing: 5) {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 10))
+                    Text("Paste Next (⌥⌘V)")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(PasteQueueManager.shared.items.isEmpty ? Color.secondary.opacity(0.2) : Color.accentColor)
+                .foregroundStyle(.white)
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .disabled(PasteQueueManager.shared.items.isEmpty)
+            
+            // Open Mini HUD
+            Button(action: {
+                PasteQueueManager.shared.showHUD()
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "pip")
+                        .font(.system(size: 10))
+                    Text("Floating HUD")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.primary.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .help("Show Floating Mini Queue HUD")
+            
+            // Clear Queue
+            Button(action: {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    PasteQueueManager.shared.clear()
+                    store.reloadClips()
+                }
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 10))
+                    Text("Clear")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.primary.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .disabled(PasteQueueManager.shared.items.isEmpty)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Color.primary.opacity(0.02))
+    }
+    
     private var footerBar: some View {
         HStack(spacing: 16) {
             shortcutHint("1-9", "Quick Paste")
@@ -352,6 +520,7 @@ public struct ClipboardView: View {
             shortcutHint("↵", "Paste")
             shortcutHint("⌥↵", "Plain Text")
             shortcutHint("Space", "Preview")
+            shortcutHint("Q", "Queue")
             shortcutHint("⌘F", "Search")
             shortcutHint("E", "Edit")
             shortcutHint("⌘⌫", "Delete")

@@ -18,6 +18,13 @@ public struct GeneralSettingsTab: View {
     @State private var hideAfterPaste: Bool = true
     @State private var isAccessibilityEnabled: Bool = PasteSimulator.isAccessibilityGranted()
     @State private var currentShortcut: KeyboardShortcut = .defaultShortcut
+    @State private var pasteQueueNextShortcut: KeyboardShortcut = .defaultPasteQueueNextShortcut
+    @State private var toggleQueueHUDShortcut: KeyboardShortcut = .defaultToggleQueueHUDShortcut
+    @State private var pasteQueueOrder: String = "fifo"
+    @State private var pasteQueueRemoveAfterPaste: Bool = true
+    @State private var pasteQueueAutoHide: Bool = true
+    @State private var playSoundOnPaste: Bool = true
+    @State private var pasteSoundName: String = "Tink"
     
     public init(store: ClipboardStore) {
         self.store = store
@@ -65,6 +72,105 @@ public struct GeneralSettingsTab: View {
                 Toggle("Hide LibrePaste window after pasting", isOn: $hideAfterPaste)
                     .onChange(of: hideAfterPaste) { _, val in
                         store.saveSetting(key: "hideAfterPaste", value: val ? "true" : "false")
+                    }
+                
+                Toggle("Play sound when pasting", isOn: $playSoundOnPaste)
+                    .onChange(of: playSoundOnPaste) { _, val in
+                        store.saveSetting(key: "playSoundOnPaste", value: val ? "true" : "false")
+                        PasteSimulator.shared.invalidateSoundCache()
+                    }
+                
+                if playSoundOnPaste {
+                    HStack {
+                        Picker("Paste Sound", selection: $pasteSoundName) {
+                            Text("Tink (Subtle Tap)").tag("Tink")
+                            Text("Pop (Soft Bubble)").tag("Pop")
+                            Text("Bottle (Cork Pop)").tag("Bottle")
+                            Text("Glass (Crisp Chime)").tag("Glass")
+                            Text("Blow (Air Puff)").tag("Blow")
+                            Text("Ping (Bell)").tag("Ping")
+                            Text("Purr (Soft)").tag("Purr")
+                        }
+                        .pickerStyle(.menu)
+                        .onChange(of: pasteSoundName) { _, val in
+                            store.saveSetting(key: "pasteSoundName", value: val)
+                            PasteSimulator.shared.invalidateSoundCache()
+                            if let sound = NSSound(named: val) {
+                                sound.volume = 0.5
+                                sound.play()
+                            }
+                        }
+                        
+                        Button(action: {
+                            if let sound = NSSound(named: pasteSoundName) {
+                                sound.volume = 0.5
+                                sound.play()
+                            }
+                        }) {
+                            Image(systemName: "speaker.wave.2")
+                                .font(.system(size: 11))
+                                .foregroundStyle(Color.accentColor)
+                                .frame(width: 22, height: 22)
+                                .background(Color.primary.opacity(0.06))
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Preview selected sound")
+                    }
+                }
+            }
+            
+            Section("Paste Queue / Sequential Paste") {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Paste Next Shortcut")
+                        Text("Paste the next queued item into the active app")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    HotkeyRecorderView(shortcut: $pasteQueueNextShortcut) { newShortcut in
+                        store.saveSetting(key: "pasteQueueNextHotkey", value: newShortcut.toJsonString())
+                        HotkeyManager.shared.updateShortcut(identifier: .pasteQueueNext, shortcut: newShortcut)
+                    }
+                }
+                
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Toggle Queue HUD")
+                        Text("Show or hide the floating mini queue overlay")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    HotkeyRecorderView(shortcut: $toggleQueueHUDShortcut) { newShortcut in
+                        store.saveSetting(key: "toggleQueueHUDHotkey", value: newShortcut.toJsonString())
+                        HotkeyManager.shared.updateShortcut(identifier: .toggleQueueHUD, shortcut: newShortcut)
+                    }
+                }
+                
+                Picker("Queue Order", selection: $pasteQueueOrder) {
+                    ForEach(PasteQueueOrder.allCases) { orderOption in
+                        Text(orderOption.displayName).tag(orderOption.rawValue)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: pasteQueueOrder) { _, val in
+                    store.saveSetting(key: "pasteQueueOrder", value: val)
+                    PasteQueueManager.shared.order = (val == "lifo") ? .lifo : .fifo
+                }
+                
+                Toggle("Remove item after paste", isOn: $pasteQueueRemoveAfterPaste)
+                    .onChange(of: pasteQueueRemoveAfterPaste) { _, val in
+                        let behaviorStr = val ? "removeAfterPaste" : "cycle"
+                        store.saveSetting(key: "pasteQueueBehavior", value: behaviorStr)
+                        PasteQueueManager.shared.behavior = val ? .removeAfterPaste : .cycle
+                    }
+                
+                Toggle("Auto-hide HUD when queue is empty", isOn: $pasteQueueAutoHide)
+                    .onChange(of: pasteQueueAutoHide) { _, val in
+                        store.saveSetting(key: "pasteQueueAutoHide", value: val ? "true" : "false")
+                        PasteQueueManager.shared.autoHideWhenEmpty = val
                     }
             }
             
@@ -169,6 +275,25 @@ public struct GeneralSettingsTab: View {
         }
         
         currentShortcut = KeyboardShortcut.from(jsonString: store.settings["globalHotkey"])
+        
+        if let nextHotkeyJson = store.settings["pasteQueueNextHotkey"], !nextHotkeyJson.isEmpty {
+            pasteQueueNextShortcut = KeyboardShortcut.from(jsonString: nextHotkeyJson)
+        } else {
+            pasteQueueNextShortcut = .defaultPasteQueueNextShortcut
+        }
+        
+        if let hudHotkeyJson = store.settings["toggleQueueHUDHotkey"], !hudHotkeyJson.isEmpty {
+            toggleQueueHUDShortcut = KeyboardShortcut.from(jsonString: hudHotkeyJson)
+        } else {
+            toggleQueueHUDShortcut = .defaultToggleQueueHUDShortcut
+        }
+        
+        pasteQueueOrder = store.settings["pasteQueueOrder"] ?? "fifo"
+        pasteQueueRemoveAfterPaste = (store.settings["pasteQueueBehavior"] ?? "removeAfterPaste") == "removeAfterPaste"
+        pasteQueueAutoHide = (store.settings["pasteQueueAutoHide"] ?? "true") == "true"
+        playSoundOnPaste = (store.settings["playSoundOnPaste"] ?? "true") == "true"
+        pasteSoundName = store.settings["pasteSoundName"] ?? "Tink"
+        
         isAccessibilityEnabled = PasteSimulator.isAccessibilityGranted()
     }
     

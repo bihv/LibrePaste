@@ -12,18 +12,23 @@ public struct SidebarView: View {
     public let pinboards: [Pinboard]
     public let counts: [Int64: Int]
     public let selectedId: Int64?
+    public let isQueueSelected: Bool
+    public let queueCount: Int?
     public let onSelect: (Int64?) -> Void
+    public let onSelectQueue: (() -> Void)?
     public let onCreate: (String, String) -> Void
     public let onUpdate: (Int64, String, String) -> Void
     public let onDelete: (Int64) -> Void
     public let onReorder: (([Int64]) -> Void)?
     public let onAssignClip: ((Int64, Int64?) -> Void)?
+    public let onEnqueueClip: ((Int64) -> Void)?
     
     @Binding public var isCollapsed: Bool
     
     @State private var showingCreateSheet = false
     @State private var editingPinboard: Pinboard? = nil
     @State private var isAllClipsTargeted = false
+    @State private var isQueueTargeted = false
     @State private var isBottomAreaTargeted = false
     @State private var reorderTarget: (id: Int64, isBottom: Bool)? = nil
     @State private var clipTargetId: Int64? = nil
@@ -32,24 +37,32 @@ public struct SidebarView: View {
         pinboards: [Pinboard],
         counts: [Int64: Int],
         selectedId: Int64?,
+        isQueueSelected: Bool = false,
+        queueCount: Int? = nil,
         isCollapsed: Binding<Bool>,
         onSelect: @escaping (Int64?) -> Void,
+        onSelectQueue: (() -> Void)? = nil,
         onCreate: @escaping (String, String) -> Void,
         onUpdate: @escaping (Int64, String, String) -> Void,
         onDelete: @escaping (Int64) -> Void,
         onReorder: (([Int64]) -> Void)? = nil,
-        onAssignClip: ((Int64, Int64?) -> Void)? = nil
+        onAssignClip: ((Int64, Int64?) -> Void)? = nil,
+        onEnqueueClip: ((Int64) -> Void)? = nil
     ) {
         self.pinboards = pinboards
         self.counts = counts
         self.selectedId = selectedId
+        self.isQueueSelected = isQueueSelected
+        self.queueCount = queueCount
         self._isCollapsed = isCollapsed
         self.onSelect = onSelect
+        self.onSelectQueue = onSelectQueue
         self.onCreate = onCreate
         self.onUpdate = onUpdate
         self.onDelete = onDelete
         self.onReorder = onReorder
         self.onAssignClip = onAssignClip
+        self.onEnqueueClip = onEnqueueClip
     }
     
     private func handleReorder(draggingId: Int64, targetId: Int64, insertAfter: Bool) {
@@ -84,6 +97,9 @@ public struct SidebarView: View {
             
             // All History Item
             allHistoryItem
+            
+            // Paste Queue Item
+            pasteQueueItem
             
             Divider()
                 .padding(.horizontal, 8)
@@ -228,36 +244,17 @@ public struct SidebarView: View {
     }
     
     private var allHistoryItem: some View {
-        Button(action: { onSelect(nil) }) {
-            HStack(spacing: 8) {
-                Image(systemName: "clock")
-                    .font(.system(size: 12))
-                    .frame(width: 16)
-                    .scaleEffect(isAllClipsTargeted ? 1.25 : 1.0)
-                    .animation(.easeInOut(duration: 0.15), value: isAllClipsTargeted)
-                
-                if !isCollapsed {
-                    Text("All Clips")
-                        .font(.system(size: 12, weight: selectedId == nil ? .semibold : .regular))
-                        .lineLimit(1)
-                    Spacer()
-                }
-            }
-            .foregroundStyle(isAllClipsTargeted ? Color.accentColor : (selectedId == nil ? Color.accentColor : Color.primary))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isAllClipsTargeted ? Color.accentColor.opacity(0.24) : (selectedId == nil ? Color.accentColor.opacity(0.12) : Color.clear))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(isAllClipsTargeted ? Color.accentColor : Color.clear, lineWidth: 1.5)
-            )
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 6)
-        .help("All Clips (drop card here to unpin)")
+        let isAllSelected = selectedId == nil && !isQueueSelected
+        return SidebarNavItem(
+            icon: "clock",
+            title: "All Clips",
+            badgeCount: nil,
+            isSelected: isAllSelected,
+            isTargeted: isAllClipsTargeted,
+            isCollapsed: isCollapsed,
+            helpText: "All Clips (drop card here to unpin)",
+            action: { onSelect(nil) }
+        )
         .onDrop(
             of: [.json],
             delegate: AllClipsDropDelegate(
@@ -268,6 +265,87 @@ public struct SidebarView: View {
                 }
             )
         )
+    }
+    
+    private var pasteQueueItem: some View {
+        let count = queueCount ?? PasteQueueManager.shared.items.count
+        return SidebarNavItem(
+            icon: "list.bullet.clipboard",
+            title: "Paste Queue",
+            badgeCount: count > 0 ? count : nil,
+            isSelected: isQueueSelected,
+            isTargeted: isQueueTargeted,
+            isCollapsed: isCollapsed,
+            helpText: "Paste Queue (drop cards here to enqueue)",
+            action: { onSelectQueue?() }
+        )
+        .onDrop(
+            of: [.json],
+            delegate: PasteQueueDropDelegate(
+                isTargeted: $isQueueTargeted,
+                reorderTarget: $reorderTarget,
+                onEnqueueClip: { clipId in
+                    onEnqueueClip?(clipId)
+                }
+            )
+        )
+    }
+}
+
+// MARK: - Reusable Sidebar Nav Item View
+
+private struct SidebarNavItem: View {
+    let icon: String
+    let title: String
+    let badgeCount: Int?
+    let isSelected: Bool
+    let isTargeted: Bool
+    let isCollapsed: Bool
+    let helpText: String
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 12))
+                    .frame(width: 16)
+                    .scaleEffect(isTargeted ? 1.25 : 1.0)
+                    .animation(.easeInOut(duration: 0.15), value: isTargeted)
+                
+                if !isCollapsed {
+                    Text(title)
+                        .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                        .lineLimit(1)
+                    
+                    Spacer()
+                    
+                    if let count = badgeCount, count > 0 {
+                        Text("\(count)")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .background(Color.accentColor)
+                            .clipShape(Capsule())
+                    }
+                }
+            }
+            .foregroundStyle(isTargeted ? Color.accentColor : (isSelected ? Color.accentColor : Color.primary))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isTargeted ? Color.accentColor.opacity(0.24) : (isSelected ? Color.accentColor.opacity(0.12) : Color.clear))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(isTargeted ? Color.accentColor : Color.clear, lineWidth: 1.5)
+            )
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 6)
+        .help(helpText)
     }
 }
 
@@ -593,6 +671,46 @@ private struct AllClipsDropDelegate: DropDelegate {
         NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .default)
         #endif
         onAssignClip(payload.id)
+        return true
+    }
+}
+
+private struct PasteQueueDropDelegate: DropDelegate {
+    @Binding var isTargeted: Bool
+    @Binding var reorderTarget: (id: Int64, isBottom: Bool)?
+    let onEnqueueClip: (Int64) -> Void
+    
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        reorderTarget = nil
+        guard let payload = DragItemPayload.currentDragPayload(),
+              payload.app == "LibrePaste",
+              payload.kind == .clip else {
+            isTargeted = false
+            return DropProposal(operation: .forbidden)
+        }
+        isTargeted = true
+        return DropProposal(operation: .copy)
+    }
+    
+    func dropExited(info: DropInfo) {
+        isTargeted = false
+    }
+    
+    func performDrop(info: DropInfo) -> Bool {
+        isTargeted = false
+        reorderTarget = nil
+        defer {
+            NSPasteboard(name: .drag).clearContents()
+        }
+        guard let payload = DragItemPayload.currentDragPayload(),
+              payload.app == "LibrePaste",
+              payload.kind == .clip else {
+            return false
+        }
+        #if os(macOS)
+        NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .default)
+        #endif
+        onEnqueueClip(payload.id)
         return true
     }
 }

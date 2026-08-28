@@ -46,6 +46,26 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.toggleFloatingPanel()
         }
         
+        // Setup Paste Queue Hotkeys
+        let savedQueueNextHotkey = DatabaseManager.shared.getSetting("pasteQueueNextHotkey")
+        let queueNextShortcut = (savedQueueNextHotkey != nil && !savedQueueNextHotkey!.isEmpty)
+            ? KeyboardShortcut.from(jsonString: savedQueueNextHotkey)
+            : KeyboardShortcut.defaultPasteQueueNextShortcut
+        HotkeyManager.shared.registerHotkey(identifier: .pasteQueueNext, shortcut: queueNextShortcut) {
+            PasteQueueManager.shared.pasteNext()
+        }
+        
+        let savedQueueHudHotkey = DatabaseManager.shared.getSetting("toggleQueueHUDHotkey")
+        let queueHudShortcut = (savedQueueHudHotkey != nil && !savedQueueHudHotkey!.isEmpty)
+            ? KeyboardShortcut.from(jsonString: savedQueueHudHotkey)
+            : KeyboardShortcut.defaultToggleQueueHUDShortcut
+        HotkeyManager.shared.registerHotkey(identifier: .toggleQueueHUD, shortcut: queueHudShortcut) {
+            PasteQueueManager.shared.toggleHUD()
+        }
+        
+        // Setup PasteQueueManager
+        PasteQueueManager.shared.setup()
+        
         // Register notifications
         NotificationCenter.default.addObserver(
             self,
@@ -186,6 +206,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Show LibrePaste (⌘⇧V)", action: #selector(toggleFloatingPanel), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Paste Next from Queue (⌥⌘V)", action: #selector(pasteNextFromQueue), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Toggle Queue HUD (⌥⇧Q)", action: #selector(toggleQueueHUD), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         
         let pauseItem = NSMenuItem(title: "Pause Watcher", action: #selector(togglePauseWatcher), keyEquivalent: "")
@@ -196,6 +218,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem(title: "Quit LibrePaste", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         
         statusItem?.menu = menu
+    }
+    
+    @objc private func pasteNextFromQueue() {
+        PasteQueueManager.shared.pasteNext()
+    }
+    
+    @objc private func toggleQueueHUD() {
+        PasteQueueManager.shared.toggleHUD()
     }
     
     @objc private func togglePauseWatcher() {

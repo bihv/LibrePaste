@@ -14,6 +14,11 @@ public final class ClipboardStore {
     public var pinboards: [Pinboard] = []
     public var pinboardCounts: [Int64: Int] = [:]
     public var selectedPinboardId: Int64? = nil
+    public var isQueueSelected: Bool = false
+    
+    public var queueManager: PasteQueueManager {
+        PasteQueueManager.shared
+    }
     
     private var searchDebounceTask: Task<Void, Never>? = nil
     
@@ -58,6 +63,12 @@ public final class ClipboardStore {
         ClipboardWatcher.shared.onPausedChanged = { [weak self] paused in
             self?.isPaused = paused
         }
+        
+        NotificationCenter.default.addObserver(forName: .pasteQueueChanged, object: nil, queue: .main) { [weak self] _ in
+            if self?.isQueueSelected == true {
+                self?.reloadClips()
+            }
+        }
     }
     
     public var filteredClips: [ClipRecord] {
@@ -81,6 +92,8 @@ public final class ClipboardStore {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty {
             clips = DatabaseManager.shared.searchClips(query: trimmed)
+        } else if isQueueSelected {
+            clips = PasteQueueManager.shared.items.map(\.clip)
         } else if let pinboardId = selectedPinboardId {
             clips = DatabaseManager.shared.getClipsByPinboard(pinboardId: pinboardId)
         } else {
@@ -127,6 +140,8 @@ public final class ClipboardStore {
             NotificationCenter.default.post(name: .hideFloatingPanel, object: nil)
         }
         
+        PasteSimulator.shared.playPasteSound()
+        
         let pasteTarget = settings["pasteTarget"] ?? "direct"
         if pasteTarget != "clipboard" {
             PasteSimulator.shared.simulatePaste(targetAppBundleId: lastActiveAppBundleId)
@@ -140,6 +155,7 @@ public final class ClipboardStore {
     
     public func deleteClip(_ clipId: Int64) {
         DatabaseManager.shared.deleteClip(id: clipId)
+        PasteQueueManager.shared.remove(clipId: clipId)
         reloadClips()
         reloadPinboards()
     }
@@ -151,6 +167,7 @@ public final class ClipboardStore {
     
     public func clearAll() {
         DatabaseManager.shared.clearAll()
+        PasteQueueManager.shared.clear()
         reloadClips()
         reloadPinboards()
     }

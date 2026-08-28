@@ -22,6 +22,16 @@ public struct KeyboardShortcut: Codable, Equatable, Hashable {
         modifiers: UInt32(cmdKey | shiftKey)
     )
     
+    public static let defaultPasteQueueNextShortcut = KeyboardShortcut(
+        keyCode: UInt32(kVK_ANSI_V),
+        modifiers: UInt32(cmdKey | optionKey)
+    )
+    
+    public static let defaultToggleQueueHUDShortcut = KeyboardShortcut(
+        keyCode: UInt32(kVK_ANSI_Q),
+        modifiers: UInt32(shiftKey | optionKey)
+    )
+    
     public static let modifierKeyCodes: Set<Int> = [
         kVK_Command,
         kVK_Shift,

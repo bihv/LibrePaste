@@ -133,6 +133,9 @@ public final class ClipboardWatcher {
             let (savedRecord, isNew) = DatabaseManager.shared.upsertClip(clip)
             DispatchQueue.main.async {
                 self?.onClipAdded?(savedRecord, isNew)
+                if PasteQueueManager.shared.isCollectModeActive {
+                    PasteQueueManager.shared.enqueue(clip: savedRecord)
+                }
             }
         }
     }
