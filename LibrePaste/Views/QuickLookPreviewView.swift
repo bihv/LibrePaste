@@ -171,7 +171,7 @@ public struct QuickLookPreviewView: View {
                 
                 // Open in Preview.app
                 Button(action: {
-                    NSWorkspace.shared.open(URL(fileURLWithPath: path))
+                    openInPreviewApp(path: path)
                 }) {
                     Label("Preview", systemImage: "arrow.up.forward.app")
                         .font(.system(size: 12))
@@ -267,7 +267,7 @@ public struct QuickLookPreviewView: View {
             
             // Contextual Metadata
             if clip.type == .image {
-                if let path = clip.imagePath, let img = NSImage(contentsOfFile: path) {
+                if let path = clip.imagePath, let img = ThumbnailManager.shared.loadFullImage(from: path) {
                     let px = getImagePixelSize(img)
                     HStack(spacing: 6) {
                         Text("\(Int(px.width)) × \(Int(px.height)) px")
@@ -345,12 +345,12 @@ public struct QuickLookPreviewView: View {
         switch clip.type {
         case .image:
             if let path = clip.imagePath {
-                if let img = NSImage(contentsOfFile: path) {
-                    pasteboard.writeObjects([img])
-                }
-                let fileUrl = URL(fileURLWithPath: path)
-                let ext = fileUrl.pathExtension.lowercased()
-                if let data = try? Data(contentsOf: fileUrl) {
+                if let data = ThumbnailManager.shared.loadDecryptedImageData(from: path) {
+                    if let img = NSImage(data: data) {
+                        pasteboard.writeObjects([img])
+                    }
+                    let fileUrl = URL(fileURLWithPath: path)
+                    let ext = fileUrl.pathExtension.lowercased()
                     switch ext {
                     case "png":
                         pasteboard.setData(data, forType: .png)
@@ -363,7 +363,7 @@ public struct QuickLookPreviewView: View {
                     case "webp":
                         pasteboard.setData(data, forType: NSPasteboard.PasteboardType("org.webmproject.webp"))
                     default:
-                        break
+                        pasteboard.setData(data, forType: .png)
                     }
                 }
             }
@@ -391,6 +391,21 @@ public struct QuickLookPreviewView: View {
             withAnimation(.easeInOut(duration: 0.2)) {
                 isCopied = false
             }
+        }
+    }
+    
+    private func openInPreviewApp(path: String) {
+        guard let data = ThumbnailManager.shared.loadDecryptedImageData(from: path) else { return }
+        let originalURL = URL(fileURLWithPath: path)
+        let ext = originalURL.pathExtension.isEmpty ? "png" : originalURL.pathExtension
+        let baseName = originalURL.deletingPathExtension().lastPathComponent
+        
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("LibrePastePreview", isDirectory: true)
+        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        let tempURL = tempDir.appendingPathComponent("\(baseName).\(ext)")
+        
+        if (try? data.write(to: tempURL)) != nil {
+            NSWorkspace.shared.open(tempURL)
         }
     }
     
@@ -507,7 +522,7 @@ private struct QuickLookImageContent: View {
     
     var body: some View {
         Group {
-            if let path = imagePath, let nsImage = NSImage(contentsOfFile: path) {
+            if let path = imagePath, let nsImage = ThumbnailManager.shared.loadFullImage(from: path) {
                 GeometryReader { geo in
                     if imageActualSize {
                         ScrollView([.horizontal, .vertical]) {

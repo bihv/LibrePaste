@@ -248,7 +248,9 @@ public final class ClipboardWatcher {
             
             DispatchQueue.global(qos: .utility).async {
                 if !FileManager.default.fileExists(atPath: fileURL.path) {
-                    try? imageData.write(to: fileURL)
+                    if let encrypted = CryptoService.shared.encrypt(data: imageData) {
+                        try? encrypted.write(to: fileURL)
+                    }
                 }
                 ThumbnailManager.shared.generateThumbnailInBackground(for: fileURL.path)
             }

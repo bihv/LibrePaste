@@ -429,7 +429,7 @@ private struct ClipCardDragPreview: View {
             #if os(macOS)
             if clip.type == .image,
                let path = clip.imagePath,
-               let img = ThumbnailManager.shared.cachedThumbnail(for: path) ?? NSImage(contentsOfFile: path) {
+               let img = ThumbnailManager.shared.cachedThumbnail(for: path) ?? ThumbnailManager.shared.loadFullImage(from: path) {
                 Image(nsImage: img)
                     .resizable()
                     .aspectRatio(contentMode: .fill)

@@ -21,12 +21,12 @@ public final class PasteSimulator {
         switch clip.type {
         case .image:
             if let imagePath = clip.imagePath {
-                if let image = NSImage(contentsOfFile: imagePath) {
-                    pasteboard.writeObjects([image])
-                }
-                let fileUrl = URL(fileURLWithPath: imagePath)
-                let ext = fileUrl.pathExtension.lowercased()
-                if let data = try? Data(contentsOf: fileUrl) {
+                if let data = ThumbnailManager.shared.loadDecryptedImageData(from: imagePath) {
+                    if let image = NSImage(data: data) {
+                        pasteboard.writeObjects([image])
+                    }
+                    let fileUrl = URL(fileURLWithPath: imagePath)
+                    let ext = fileUrl.pathExtension.lowercased()
                     switch ext {
                     case "png":
                         pasteboard.setData(data, forType: .png)
@@ -39,7 +39,7 @@ public final class PasteSimulator {
                     case "webp":
                         pasteboard.setData(data, forType: NSPasteboard.PasteboardType("org.webmproject.webp"))
                     default:
-                        break
+                        pasteboard.setData(data, forType: .png)
                     }
                 }
             }

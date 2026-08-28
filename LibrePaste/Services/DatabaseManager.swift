@@ -78,10 +78,10 @@ public final class DatabaseManager: @unchecked Sendable {
         CREATE TABLE IF NOT EXISTS clips (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             type TEXT NOT NULL,
-            content TEXT NOT NULL DEFAULT '',
-            rtf TEXT,
+            content BLOB NOT NULL DEFAULT (x''),
+            rtf BLOB,
             image_path TEXT,
-            preview TEXT NOT NULL DEFAULT '',
+            preview BLOB NOT NULL DEFAULT (x''),
             hash TEXT NOT NULL,
             pinned INTEGER NOT NULL DEFAULT 0,
             created_at INTEGER NOT NULL,
@@ -128,6 +128,53 @@ public final class DatabaseManager: @unchecked Sendable {
         
         // Migrate legacy setting values if needed
         _ = executeSimple("UPDATE settings SET value = 'direct' WHERE key = 'pasteTarget' AND value = 'active';")
+    }
+    
+    // MARK: - Crypto & BLOB Binding Helpers
+    
+    private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+    
+    private func bindEncryptedBlob(stmt: OpaquePointer?, index: Int32, text: String?) {
+        guard let text = text, !text.isEmpty else {
+            sqlite3_bind_null(stmt, index)
+            return
+        }
+        if let encryptedData = CryptoService.shared.encryptString(text) {
+            encryptedData.withUnsafeBytes { rawBuffer in
+                sqlite3_bind_blob(stmt, index, rawBuffer.baseAddress, Int32(rawBuffer.count), SQLITE_TRANSIENT)
+            }
+        } else {
+            sqlite3_bind_null(stmt, index)
+        }
+    }
+    
+    private func bindEncryptedRequiredBlob(stmt: OpaquePointer?, index: Int32, text: String) {
+        if let encryptedData = CryptoService.shared.encryptString(text) {
+            encryptedData.withUnsafeBytes { rawBuffer in
+                sqlite3_bind_blob(stmt, index, rawBuffer.baseAddress, Int32(rawBuffer.count), SQLITE_TRANSIENT)
+            }
+        } else {
+            sqlite3_bind_blob(stmt, index, nil, 0, SQLITE_TRANSIENT)
+        }
+    }
+    
+    private func extractData(from stmt: OpaquePointer, column: Int32) -> Data? {
+        guard sqlite3_column_type(stmt, column) != SQLITE_NULL else { return nil }
+        if let bytes = sqlite3_column_blob(stmt, column) {
+            let count = sqlite3_column_bytes(stmt, column)
+            return Data(bytes: bytes, count: Int(count))
+        }
+        return nil
+    }
+    
+    private func extractDecryptedString(from stmt: OpaquePointer, column: Int32) -> String {
+        guard let data = extractData(from: stmt, column: column) else { return "" }
+        return CryptoService.shared.decryptString(from: data) ?? ""
+    }
+    
+    private func extractDecryptedOptionalString(from stmt: OpaquePointer, column: Int32) -> String? {
+        guard let data = extractData(from: stmt, column: column) else { return nil }
+        return CryptoService.shared.decryptString(from: data)
     }
     
     // MARK: - Clips Operations
@@ -185,18 +232,14 @@ public final class DatabaseManager: @unchecked Sendable {
             
             if sqlite3_prepare_v2(db, insertSQL, -1, &insertStmt, nil) == SQLITE_OK {
                 sqlite3_bind_text(insertStmt, 1, (clip.type.rawValue as NSString).utf8String, -1, nil)
-                sqlite3_bind_text(insertStmt, 2, (clip.content as NSString).utf8String, -1, nil)
-                if let rtf = clip.rtf {
-                    sqlite3_bind_text(insertStmt, 3, (rtf as NSString).utf8String, -1, nil)
-                } else {
-                    sqlite3_bind_null(insertStmt, 3)
-                }
+                bindEncryptedRequiredBlob(stmt: insertStmt, index: 2, text: clip.content)
+                bindEncryptedBlob(stmt: insertStmt, index: 3, text: clip.rtf)
                 if let path = clip.imagePath {
                     sqlite3_bind_text(insertStmt, 4, (path as NSString).utf8String, -1, nil)
                 } else {
                     sqlite3_bind_null(insertStmt, 4)
                 }
-                sqlite3_bind_text(insertStmt, 5, (clip.preview as NSString).utf8String, -1, nil)
+                bindEncryptedRequiredBlob(stmt: insertStmt, index: 5, text: clip.preview)
                 sqlite3_bind_text(insertStmt, 6, (clip.hash as NSString).utf8String, -1, nil)
                 sqlite3_bind_double(insertStmt, 7, now)
                 if let src = clip.sourceName {
@@ -251,23 +294,28 @@ public final class DatabaseManager: @unchecked Sendable {
     
     public func searchClips(query: String, limit: Int = 200) -> [ClipRecord] {
         return queue.sync {
+            let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return [] }
+            
             let sql = """
             SELECT id, type, content, rtf, image_path, preview, hash, pinned, created_at, source_name, source_icon, pinboard_id
             FROM clips
-            WHERE content LIKE ? OR preview LIKE ?
-            ORDER BY pinned DESC, created_at DESC LIMIT ?;
+            ORDER BY pinned DESC, created_at DESC;
             """
             var stmt: OpaquePointer?
             var result: [ClipRecord] = []
-            let pattern = "%\(query)%"
             
             if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK, let stmt = stmt {
-                sqlite3_bind_text(stmt, 1, (pattern as NSString).utf8String, -1, nil)
-                sqlite3_bind_text(stmt, 2, (pattern as NSString).utf8String, -1, nil)
-                sqlite3_bind_int(stmt, 3, Int32(limit))
                 while sqlite3_step(stmt) == SQLITE_ROW {
                     if let clip = extractClip(from: stmt) {
-                        result.append(clip)
+                        if clip.content.localizedStandardContains(trimmed) ||
+                           clip.preview.localizedStandardContains(trimmed) ||
+                           (clip.sourceName?.localizedStandardContains(trimmed) == true) {
+                            result.append(clip)
+                            if result.count >= limit {
+                                break
+                            }
+                        }
                     }
                 }
             }
@@ -341,13 +389,9 @@ public final class DatabaseManager: @unchecked Sendable {
             let sql = "UPDATE clips SET content = ?, preview = ?, rtf = ?, hash = ? WHERE id = ?;"
             var stmt: OpaquePointer?
             if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
-                sqlite3_bind_text(stmt, 1, (content as NSString).utf8String, -1, nil)
-                sqlite3_bind_text(stmt, 2, (preview as NSString).utf8String, -1, nil)
-                if let rtf = rtf {
-                    sqlite3_bind_text(stmt, 3, (rtf as NSString).utf8String, -1, nil)
-                } else {
-                    sqlite3_bind_null(stmt, 3)
-                }
+                bindEncryptedRequiredBlob(stmt: stmt, index: 1, text: content)
+                bindEncryptedRequiredBlob(stmt: stmt, index: 2, text: preview)
+                bindEncryptedBlob(stmt: stmt, index: 3, text: rtf)
                 sqlite3_bind_text(stmt, 4, (newHash as NSString).utf8String, -1, nil)
                 sqlite3_bind_int64(stmt, 5, id)
                 let stepRes = sqlite3_step(stmt)
@@ -356,13 +400,9 @@ public final class DatabaseManager: @unchecked Sendable {
                     let fallbackSql = "UPDATE clips SET content = ?, preview = ?, rtf = ? WHERE id = ?;"
                     var fallbackStmt: OpaquePointer?
                     if sqlite3_prepare_v2(db, fallbackSql, -1, &fallbackStmt, nil) == SQLITE_OK {
-                        sqlite3_bind_text(fallbackStmt, 1, (content as NSString).utf8String, -1, nil)
-                        sqlite3_bind_text(fallbackStmt, 2, (preview as NSString).utf8String, -1, nil)
-                        if let rtf = rtf {
-                            sqlite3_bind_text(fallbackStmt, 3, (rtf as NSString).utf8String, -1, nil)
-                        } else {
-                            sqlite3_bind_null(fallbackStmt, 3)
-                        }
+                        bindEncryptedRequiredBlob(stmt: fallbackStmt, index: 1, text: content)
+                        bindEncryptedRequiredBlob(stmt: fallbackStmt, index: 2, text: preview)
+                        bindEncryptedBlob(stmt: fallbackStmt, index: 3, text: rtf)
                         sqlite3_bind_int64(fallbackStmt, 4, id)
                         sqlite3_step(fallbackStmt)
                     }
@@ -780,22 +820,16 @@ public final class DatabaseManager: @unchecked Sendable {
     private func extractClip(from stmt: OpaquePointer) -> ClipRecord? {
         let id = sqlite3_column_int64(stmt, 0)
         guard let typePtr = sqlite3_column_text(stmt, 1),
-              let contentPtr = sqlite3_column_text(stmt, 2),
-              let previewPtr = sqlite3_column_text(stmt, 5),
               let hashPtr = sqlite3_column_text(stmt, 6) else {
             return nil
         }
         
         let typeRaw = String(cString: typePtr)
         let type = ClipType(rawValue: typeRaw) ?? .text
-        let content = String(cString: contentPtr)
-        let preview = String(cString: previewPtr)
+        let content = extractDecryptedString(from: stmt, column: 2)
+        let preview = extractDecryptedString(from: stmt, column: 5)
         let hash = String(cString: hashPtr)
-        
-        var rtf: String?
-        if sqlite3_column_type(stmt, 3) != SQLITE_NULL, let ptr = sqlite3_column_text(stmt, 3) {
-            rtf = String(cString: ptr)
-        }
+        let rtf = extractDecryptedOptionalString(from: stmt, column: 3)
         
         var imagePath: String?
         if sqlite3_column_type(stmt, 4) != SQLITE_NULL, let ptr = sqlite3_column_text(stmt, 4) {

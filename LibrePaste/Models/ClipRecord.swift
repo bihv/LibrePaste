@@ -73,11 +73,77 @@ nonisolated public struct ClipImageDragPayload: Codable, Transferable, Sendable 
         self.fileURL = URL(fileURLWithPath: imagePath)
     }
     
-    public static var transferRepresentation: some TransferRepresentation {
-        FileRepresentation(exportedContentType: .image) { item in
-            SentTransferredFile(item.fileURL)
+    private static func createDecryptedTempFile(from sourcePath: String) -> URL? {
+        guard let decryptedData = ThumbnailManager.shared.loadDecryptedImageData(from: sourcePath) else {
+            return nil
         }
-        ProxyRepresentation(exporting: \.fileURL)
+        let sourceURL = URL(fileURLWithPath: sourcePath)
+        let ext = sourceURL.pathExtension.isEmpty ? "png" : sourceURL.pathExtension
+        let baseName = sourceURL.deletingPathExtension().lastPathComponent
+        
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("LibrePasteDrag", isDirectory: true)
+        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        
+        let tempURL = tempDir.appendingPathComponent("\(baseName).\(ext)")
+        try? decryptedData.write(to: tempURL)
+        return tempURL
+    }
+    
+    public static var transferRepresentation: some TransferRepresentation {
+        DataRepresentation(exportedContentType: .png) { item in
+            let data = ThumbnailManager.shared.loadDecryptedImageData(from: item.fileURL.path) ?? Data()
+            if item.fileURL.pathExtension.lowercased() == "png" {
+                return data
+            }
+            #if os(macOS)
+            if let image = NSImage(data: data),
+               let tiff = image.tiffRepresentation,
+               let bitmap = NSBitmapImageRep(data: tiff),
+               let pngData = bitmap.representation(using: .png, properties: [:]) {
+                return pngData
+            }
+            #endif
+            return data
+        }
+        DataRepresentation(exportedContentType: .jpeg) { item in
+            let data = ThumbnailManager.shared.loadDecryptedImageData(from: item.fileURL.path) ?? Data()
+            if ["jpg", "jpeg"].contains(item.fileURL.pathExtension.lowercased()) {
+                return data
+            }
+            #if os(macOS)
+            if let image = NSImage(data: data),
+               let tiff = image.tiffRepresentation,
+               let bitmap = NSBitmapImageRep(data: tiff),
+               let jpegData = bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.9]) {
+                return jpegData
+            }
+            #endif
+            return data
+        }
+        #if os(macOS)
+        DataRepresentation(exportedContentType: .tiff) { item in
+            let data = ThumbnailManager.shared.loadDecryptedImageData(from: item.fileURL.path) ?? Data()
+            if let image = NSImage(data: data), let tiff = image.tiffRepresentation {
+                return tiff
+            }
+            return data
+        }
+        #endif
+        FileRepresentation(exportedContentType: .png) { item in
+            let tempURL = Self.createDecryptedTempFile(from: item.fileURL.path) ?? item.fileURL
+            return SentTransferredFile(tempURL)
+        }
+        FileRepresentation(exportedContentType: .jpeg) { item in
+            let tempURL = Self.createDecryptedTempFile(from: item.fileURL.path) ?? item.fileURL
+            return SentTransferredFile(tempURL)
+        }
+        FileRepresentation(exportedContentType: .image) { item in
+            let tempURL = Self.createDecryptedTempFile(from: item.fileURL.path) ?? item.fileURL
+            return SentTransferredFile(tempURL)
+        }
+        ProxyRepresentation(exporting: { item -> URL in
+            Self.createDecryptedTempFile(from: item.fileURL.path) ?? item.fileURL
+        })
         CodableRepresentation(contentType: .json)
     }
 }

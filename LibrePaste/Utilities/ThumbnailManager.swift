@@ -137,11 +137,14 @@ public final class ThumbnailManager: @unchecked Sendable {
     // MARK: - ImageIO Downsampling
     
     private func downsampleWithImageIO(from url: URL) -> (image: NSImage, cgImage: CGImage, hasAlpha: Bool)? {
+        guard let fileData = try? Data(contentsOf: url),
+              let rawData = CryptoService.shared.decrypt(data: fileData) else { return nil }
+        
         let options: [CFString: Any] = [
             kCGImageSourceShouldCache: false
         ]
         
-        guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, options as CFDictionary) else {
+        guard let imageSource = CGImageSourceCreateWithData(rawData as CFData, options as CFDictionary) else {
             return nil
         }
         
@@ -167,10 +170,12 @@ public final class ThumbnailManager: @unchecked Sendable {
     }
     
     private func loadCachedDiskThumbnail(from url: URL) -> NSImage? {
+        guard let fileData = try? Data(contentsOf: url),
+              let rawData = CryptoService.shared.decrypt(data: fileData) else { return nil }
         let options: [CFString: Any] = [
             kCGImageSourceShouldCacheImmediately: true
         ]
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+        guard let source = CGImageSourceCreateWithData(rawData as CFData, options as CFDictionary),
               let cgImage = CGImageSourceCreateImageAtIndex(source, 0, options as CFDictionary) else {
             return nil
         }
@@ -180,7 +185,8 @@ public final class ThumbnailManager: @unchecked Sendable {
     
     private func saveThumbnailToDisk(cgImage: CGImage, hasAlpha: Bool, destinationURL: URL) {
         let uti: CFString = hasAlpha ? UTType.png.identifier as CFString : UTType.jpeg.identifier as CFString
-        guard let destination = CGImageDestinationCreateWithURL(destinationURL as CFURL, uti, 1, nil) else {
+        let data = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(data as CFMutableData, uti, 1, nil) else {
             return
         }
         
@@ -190,7 +196,27 @@ public final class ThumbnailManager: @unchecked Sendable {
         }
         
         CGImageDestinationAddImage(destination, cgImage, properties as CFDictionary)
-        CGImageDestinationFinalize(destination)
+        if CGImageDestinationFinalize(destination) {
+            let finalData = data as Data
+            if let encrypted = CryptoService.shared.encrypt(data: finalData) {
+                try? encrypted.write(to: destinationURL)
+            }
+        }
+    }
+    
+    // MARK: - Decrypted Full Image Access
+    
+    /// Loads the full-size decrypted image from disk (for QuickLook Preview)
+    public func loadFullImage(from path: String) -> NSImage? {
+        guard let data = loadDecryptedImageData(from: path) else { return nil }
+        return NSImage(data: data)
+    }
+    
+    /// Loads the decrypted raw image data from disk (for Pasteboard / Drag & Drop)
+    public func loadDecryptedImageData(from path: String) -> Data? {
+        let url = URL(fileURLWithPath: path)
+        guard let fileData = try? Data(contentsOf: url) else { return nil }
+        return CryptoService.shared.decrypt(data: fileData)
     }
     
     // MARK: - Disk Path Utilities
