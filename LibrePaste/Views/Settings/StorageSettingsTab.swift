@@ -113,9 +113,7 @@ public struct StorageSettingsTab: View {
     private func performClean() {
         isPerformingMaintenance = true
         Task {
-            await Task.detached(priority: .userInitiated) {
-                _ = DatabaseManager.shared.cleanUnpinnedClips()
-            }.value
+            _ = DatabaseManager.shared.cleanUnpinnedClips()
             store.reloadClips()
             store.reloadStats()
             isPerformingMaintenance = false
@@ -125,9 +123,7 @@ public struct StorageSettingsTab: View {
     private func performVacuum() {
         isPerformingMaintenance = true
         Task {
-            await Task.detached(priority: .userInitiated) {
-                _ = DatabaseManager.shared.vacuumDatabase()
-            }.value
+            _ = DatabaseManager.shared.vacuumDatabase()
             store.reloadStats()
             isPerformingMaintenance = false
         }

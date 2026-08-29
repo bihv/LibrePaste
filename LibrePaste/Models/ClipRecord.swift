@@ -284,7 +284,7 @@ nonisolated public struct ClipRecord: Identifiable, Codable, Equatable, Hashable
         Date(timeIntervalSince1970: createdAt / 1000.0)
     }
     
-    public var relativeTimeFormatted: String {
+    @MainActor public var relativeTimeFormatted: String {
         createdDate.formatted(.relative(presentation: .numeric, unitsStyle: .abbreviated).locale(L10n.currentLocale))
     }
 }
