@@ -116,6 +116,9 @@ public final class ClipboardStore {
         
         let imagePaths = clips.compactMap { $0.type == .image ? $0.imagePath : nil }
         ThumbnailManager.shared.prefetchThumbnails(for: imagePaths)
+        
+        let linkUrls = clips.compactMap { $0.type == .link ? $0.content : nil }
+        FaviconService.shared.prefetchFavicons(for: linkUrls)
     }
     
     public func reloadPinboards() {

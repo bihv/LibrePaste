@@ -100,6 +100,7 @@ public struct ClipCardView: View {
                 index: index,
                 isHovered: isHovered,
                 isRevealed: isRevealed,
+                isColor: detectedColor != nil,
                 theme: headerTheme,
                 onTogglePin: { onAction(.togglePin) },
                 onToggleReveal: { onAction(.toggleReveal) }
@@ -109,13 +110,17 @@ public struct ClipCardView: View {
             VStack(alignment: .leading, spacing: 8) {
                 // Content Preview Area
                 VStack(alignment: .leading) {
-                    switch clip.type {
-                    case .image:
-                        ClipThumbnailView(imagePath: clip.imagePath, previewText: clip.preview)
-                    case .link:
-                        linkContentView
-                    case .text, .richtext:
-                        textContentView
+                    if let colorInfo = detectedColor {
+                        colorContentView(colorInfo)
+                    } else {
+                        switch clip.type {
+                        case .image:
+                            ClipThumbnailView(imagePath: clip.imagePath, previewText: clip.preview)
+                        case .link:
+                            linkContentView
+                        case .text, .richtext:
+                            textContentView
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -174,9 +179,94 @@ public struct ClipCardView: View {
         clip.renderedPlainText(isRevealed: isRevealed)
     }
     
+    private var detectedColor: DetectedColorInfo? {
+        guard !clip.isSensitive || isRevealed else { return nil }
+        guard clip.type == .text || clip.type == .richtext else { return nil }
+        return ColorCodeHelper.shared.detectColor(in: displayPreviewText)
+    }
+    
+    private func colorContentView(_ colorInfo: DetectedColorInfo) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Visual Color Swatch Box
+            ZStack(alignment: .topTrailing) {
+                // Checkerboard pattern for transparency
+                CheckerboardPatternView(size: 6)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                
+                // Color Fill Swatch
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(colorInfo.color)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(colorInfo.subtleBorderColor, lineWidth: 1)
+                    )
+                
+                // Format & Opacity Badges
+                HStack(spacing: 4) {
+                    if colorInfo.alpha < 0.999 {
+                        Text("\(colorInfo.aPercent)%")
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .foregroundStyle(colorInfo.contrastTextColor)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(Color.black.opacity(colorInfo.isDark ? 0.35 : 0.15))
+                            .clipShape(Capsule())
+                    }
+                    
+                    Text(colorInfo.format.rawValue)
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .foregroundStyle(colorInfo.contrastTextColor)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.black.opacity(colorInfo.isDark ? 0.35 : 0.15))
+                        .clipShape(Capsule())
+                }
+                .padding(6)
+            }
+            .frame(height: 84)
+            .shadow(color: colorInfo.color.opacity(0.18), radius: 6, y: 2)
+            
+            // Color Values Information
+            VStack(alignment: .leading, spacing: 4) {
+                Text(colorInfo.hexString)
+                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                
+                // RGB Component Channel Pills
+                HStack(spacing: 4) {
+                    rgbChannelBadge(label: "R", value: "\(colorInfo.r255)", color: .red)
+                    rgbChannelBadge(label: "G", value: "\(colorInfo.g255)", color: .green)
+                    rgbChannelBadge(label: "B", value: "\(colorInfo.b255)", color: .blue)
+                }
+                
+                Text(colorInfo.rgbString)
+                    .font(.system(size: 10, weight: .regular, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+    }
+    
+    private func rgbChannelBadge(label: String, value: String, color: Color) -> some View {
+        HStack(spacing: 2) {
+            Text(label)
+                .font(.system(size: 8, weight: .bold))
+                .foregroundStyle(color)
+            Text(value)
+                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 5)
+        .padding(.vertical, 2)
+        .background(Color.primary.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+    }
+    
     private var textContentView: some View {
         Text(displayPreviewText)
-            .font(clip.isSensitive && !isRevealed ? .system(size: 12, weight: .medium, design: .monospaced) : .system(size: 12.5, weight: .regular, design: .default))
+            .font(clip.isSensitive && !isRevealed ? .system(size: 12, weight: .medium, design: .monospaced) : .system(size: 13, weight: .regular, design: .default))
             .foregroundStyle(clip.isSensitive && !isRevealed ? .secondary : .primary)
             .lineSpacing(2.5)
             .multilineTextAlignment(.leading)
@@ -186,10 +276,9 @@ public struct ClipCardView: View {
     
     private var linkContentView: some View {
         VStack(alignment: .leading, spacing: 6) {
-            if let url = URL(string: clip.content), let host = url.host {
-                HStack(spacing: 4) {
-                    Image(systemName: "globe")
-                        .font(.system(size: 11))
+            if let url = clip.parsedLinkURL, let host = url.host {
+                HStack(spacing: 5) {
+                    FaviconImageView(urlString: clip.content, size: 13)
                     Text(host)
                         .font(.system(size: 11, weight: .semibold))
                 }
@@ -213,19 +302,29 @@ public struct ClipCardView: View {
             if clip.isSensitive {
                 HStack(spacing: 3) {
                     Image(systemName: clip.sensitiveType?.iconName ?? "lock.shield.fill")
-                        .font(.system(size: 8.5))
+                        .font(.system(size: 9))
                     Text(clip.customRuleName ?? clip.sensitiveType?.displayName ?? L10n.tr("Custom Rule"))
                         .font(.system(size: 9, weight: .semibold))
                         .lineLimit(1)
                 }
                 .foregroundStyle(clip.sensitiveType?.themeColor ?? .orange)
-                .padding(.horizontal, 4.5)
-                .padding(.vertical, 1.5)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 2)
                 .background((clip.sensitiveType?.themeColor ?? .orange).opacity(0.14))
-                .clipShape(RoundedRectangle(cornerRadius: 3.5))
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+            } else if let colorInfo = detectedColor {
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(colorInfo.color)
+                        .frame(width: 7, height: 7)
+                        .overlay(Circle().stroke(Color.primary.opacity(0.2), lineWidth: 0.5))
+                    Text(L10n.tr("Color"))
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
             } else if clip.type == .text || clip.type == .richtext {
                 Text("\(displayPreviewText.count) \(L10n.tr("chars"))")
-                    .font(.system(size: 9.5, weight: .regular))
+                    .font(.system(size: 10, weight: .regular))
                     .foregroundStyle(.tertiary)
             }
             
@@ -237,7 +336,7 @@ public struct ClipCardView: View {
                         .fill(currentPinboard.swiftUIColor)
                         .frame(width: 6, height: 6)
                     Text(currentPinboard.name)
-                        .font(.system(size: 9.5, weight: .medium))
+                        .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -331,9 +430,30 @@ private struct ClipCardHeaderView: View {
     let index: Int
     let isHovered: Bool
     let isRevealed: Bool
+    let isColor: Bool
     let theme: CardHeaderTheme
     let onTogglePin: () -> Void
     let onToggleReveal: () -> Void
+    
+    init(
+        clip: ClipRecord,
+        index: Int,
+        isHovered: Bool,
+        isRevealed: Bool,
+        isColor: Bool = false,
+        theme: CardHeaderTheme,
+        onTogglePin: @escaping () -> Void,
+        onToggleReveal: @escaping () -> Void
+    ) {
+        self.clip = clip
+        self.index = index
+        self.isHovered = isHovered
+        self.isRevealed = isRevealed
+        self.isColor = isColor
+        self.theme = theme
+        self.onTogglePin = onTogglePin
+        self.onToggleReveal = onToggleReveal
+    }
     
     var body: some View {
         HStack(alignment: .center, spacing: 6) {
@@ -405,7 +525,7 @@ private struct ClipCardHeaderView: View {
             }
             
             // Type icon badge
-            Image(systemName: clip.type.systemImage)
+            Image(systemName: isColor ? "paintpalette.fill" : clip.type.systemImage)
                 .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(theme.textColor.opacity(0.9))
                 .padding(.horizontal, 4.5)
@@ -467,6 +587,19 @@ private struct ClipCardDragPreview: View {
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 26, height: 26)
                     .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            } else if !clip.isSensitive, let colorInfo = ColorCodeHelper.shared.detectColor(in: previewText) {
+                ZStack {
+                    CheckerboardPatternView(size: 3)
+                        .frame(width: 26, height: 26)
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(colorInfo.color)
+                        .frame(width: 26, height: 26)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .strokeBorder(colorInfo.subtleBorderColor, lineWidth: 0.8)
+                        )
+                }
             } else {
                 Image(systemName: clip.isSensitive ? (clip.sensitiveType?.iconName ?? "lock.shield.fill") : clip.type.systemImage)
                     .font(.system(size: 13, weight: .semibold))

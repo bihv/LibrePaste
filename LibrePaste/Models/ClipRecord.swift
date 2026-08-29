@@ -400,3 +400,20 @@ extension Color {
         self.init(.sRGB, red: r, green: g, blue: b, opacity: a)
     }
 }
+
+extension ClipRecord {
+    public var parsedLinkURL: URL? {
+        guard type == .link || (!content.isEmpty && (content.contains("://") || content.lowercased().hasPrefix("www."))) else {
+            return nil
+        }
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let url = URL(string: trimmed), url.scheme != nil, url.host != nil {
+            return url
+        }
+        let formatted = trimmed.contains("://") ? trimmed : "https://\(trimmed)"
+        if let url = URL(string: formatted), url.host != nil {
+            return url
+        }
+        return nil
+    }
+}

@@ -270,6 +270,7 @@ public final class ClipboardWatcher {
             let type: ClipType
             if !trimmedText.isEmpty && isURL(trimmedText) {
                 type = .link
+                FaviconService.shared.prefetchFavicon(for: trimmedText)
             } else if hasRichFormatting(html) || rtf != nil {
                 type = .richtext
             } else {
@@ -282,7 +283,7 @@ public final class ClipboardWatcher {
                 return nil
             }
             
-            let content = !html.isEmpty ? html : text
+            let content = (type == .link) ? trimmedText : (!html.isEmpty ? html : text)
             var preview = buildPreview(text: !text.isEmpty ? text : stripHTML(html))
             
             // Sensitive data detection

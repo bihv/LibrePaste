@@ -127,15 +127,26 @@ public struct ClipCompactRowView: View {
                 }
             }
             
-            // Clip Type Badge Icon
-            Image(systemName: clip.type.systemImage)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(clip.type.themeColor)
-                .frame(width: 18, height: 18)
-                .background(
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(clip.type.themeColor.opacity(0.12))
-                )
+            // Clip Type Badge Icon (or paintpalette if color)
+            if let colorInfo = detectedColor {
+                Image(systemName: "paintpalette.fill")
+                    .font(.system(size: 9.5, weight: .semibold))
+                    .foregroundStyle(colorInfo.color)
+                    .frame(width: 18, height: 18)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(colorInfo.color.opacity(0.16))
+                    )
+            } else {
+                Image(systemName: clip.type.systemImage)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(clip.type.themeColor)
+                    .frame(width: 18, height: 18)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(clip.type.themeColor.opacity(0.12))
+                    )
+            }
         }
     }
     
@@ -168,15 +179,53 @@ public struct ClipCompactRowView: View {
                         .font(.system(size: 11.5, weight: .medium, design: .monospaced))
                         .foregroundStyle(.secondary)
                 }
-            } else if clip.type == .link, let url = URL(string: clip.content), let host = url.host {
-                HStack(spacing: 4) {
-                    Text(host)
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Color.green)
+            } else if let colorInfo = detectedColor {
+                HStack(spacing: 6) {
+                    // Mini Color Swatch Chip with Checkerboard background
+                    ZStack {
+                        CheckerboardPatternView(size: 3)
+                            .frame(width: 16, height: 16)
+                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                        
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(colorInfo.color)
+                            .frame(width: 16, height: 16)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                    .strokeBorder(colorInfo.subtleBorderColor, lineWidth: 0.8)
+                            )
+                    }
+                    
+                    Text(colorInfo.hexString)
+                        .font(.system(size: 13, weight: isSelected ? .semibold : .medium, design: .monospaced))
+                        .foregroundStyle(isSelected ? .primary : Color.primary.opacity(0.95))
+                    
+                    Text(colorInfo.format.rawValue)
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.secondary)
                         .padding(.horizontal, 4)
-                        .padding(.vertical, 1)
-                        .background(Color.green.opacity(0.12))
+                        .padding(.vertical, 2)
+                        .background(Color.primary.opacity(0.06))
                         .clipShape(RoundedRectangle(cornerRadius: 3))
+                    
+                    if colorInfo.alpha < 0.999 {
+                        Text("\(colorInfo.aPercent)%")
+                            .font(.system(size: 9, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+            } else if clip.type == .link, let url = clip.parsedLinkURL, let host = url.host {
+                HStack(spacing: 5) {
+                    HStack(spacing: 3.5) {
+                        FaviconImageView(urlString: clip.content, size: 11)
+                        Text(host)
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .foregroundStyle(Color.green)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(Color.green.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 3))
                     
                     Text(displayPreviewText)
                         .font(.system(size: 12, weight: .regular))
@@ -186,7 +235,7 @@ public struct ClipCompactRowView: View {
                 }
             } else {
                 Text(displayPreviewText)
-                    .font(.system(size: 12.5, weight: isSelected ? .medium : .regular))
+                    .font(.system(size: 13, weight: isSelected ? .medium : .regular))
                     .foregroundStyle(isSelected ? .primary : Color.primary.opacity(0.9))
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -209,8 +258,26 @@ public struct ClipCompactRowView: View {
     
     private var metadataRow: some View {
         HStack(spacing: 5) {
-            // Character count / clip type info
-            if clip.type == .text || clip.type == .richtext {
+            // Character count / clip type info / color info
+            if let colorInfo = detectedColor {
+                HStack(spacing: 3) {
+                    Circle()
+                        .fill(colorInfo.color)
+                        .frame(width: 5, height: 5)
+                        .overlay(Circle().stroke(Color.primary.opacity(0.2), lineWidth: 0.5))
+                    Text(L10n.tr("Color"))
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                
+                Text("•")
+                    .font(.system(size: 8))
+                    .foregroundStyle(.tertiary)
+                
+                Text("RGB(\(colorInfo.r255), \(colorInfo.g255), \(colorInfo.b255))")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.tertiary)
+            } else if clip.type == .text || clip.type == .richtext {
                 Text("\(displayPreviewText.count) \(L10n.tr("chars"))")
                     .font(.system(size: 10))
                     .foregroundStyle(.tertiary)
@@ -245,7 +312,7 @@ public struct ClipCompactRowView: View {
                         .fill(currentPinboard.swiftUIColor)
                         .frame(width: 5, height: 5)
                     Text(currentPinboard.name)
-                        .font(.system(size: 9.5, weight: .medium))
+                        .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -362,6 +429,12 @@ public struct ClipCompactRowView: View {
     
     private var displayPreviewText: String {
         clip.renderedPlainText(isRevealed: isRevealed)
+    }
+    
+    private var detectedColor: DetectedColorInfo? {
+        guard !clip.isSensitive || isRevealed else { return nil }
+        guard clip.type == .text || clip.type == .richtext else { return nil }
+        return ColorCodeHelper.shared.detectColor(in: displayPreviewText)
     }
     
     @ViewBuilder
