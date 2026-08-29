@@ -40,7 +40,7 @@ public final class RichTextHelper {
         return nil
     }
     
-    /// Preprocess HTML to fix WebKit layout quirks with modern web formats (Facebook, Twitter, etc.)
+    /// Preprocess HTML to fix WebKit layout quirks with modern web formats (Facebook, Twitter, Google Docs, etc.)
     public static func sanitizeHTML(_ html: String) -> String {
         var result = html
         
@@ -70,6 +70,28 @@ public final class RichTextHelper {
             options: .regularExpression
         )
         
+        // 3. Normalize white-space in styles to prevent empty bullet paragraphs from Google Docs / web editors
+        result = result.replacingOccurrences(
+            of: "white-space\\s*:\\s*(pre-wrap|pre|break-spaces)",
+            with: "white-space: normal",
+            options: .regularExpression
+        )
+        
+        // 4. Remove redundant bullet characters or bullet spans directly at the beginning of <li>
+        // Matches: <li>• Item, <li>&bull; Item, <li><span>•</span> Item, <li><span class="bullet">•</span> Item
+        if let bulletRegex = try? NSRegularExpression(
+            pattern: "(<li[^>]*>\\s*(?:<(?:span|p|div)[^>]*>)?\\s*)(?:[•◦▪⁃\\u2022\\u25E6\\u25AA\\u2043]|&bull;|&#8226;|&#x2022;)\\s*(?:<\\/(?:span|p|div)>)?\\s*",
+            options: [.caseInsensitive]
+        ) {
+            let nsString = result as NSString
+            result = bulletRegex.stringByReplacingMatches(
+                in: result,
+                options: [],
+                range: NSRange(location: 0, length: nsString.length),
+                withTemplate: "$1"
+            )
+        }
+        
         return result
     }
     
@@ -78,7 +100,15 @@ public final class RichTextHelper {
         let fullRange = NSRange(location: 0, length: mutable.length)
         guard fullRange.length > 0 else { return attr }
         
-        // Adapt text color for current appearance (Dark/Light mode)
+        // 1. Fix duplicate list markers in TextKit 2 (macOS 12+)
+        // When WebKit converts HTML to NSAttributedString, it embeds list markers (\t•\t, \t1\t, etc.)
+        // directly into the text characters, while ALSO populating NSParagraphStyle.textLists.
+        // In TextKit 2, NSTextLayoutManager automatically adds an NSTextListElement marker
+        // whenever textLists is non-empty, causing list bullets/numbers to appear duplicated (e.g. • • or 1. 1.).
+        // If a paragraph already contains embedded list marker tabs/prefixes, we clear textLists.
+        sanitizeListStyles(in: mutable)
+        
+        // 2. Adapt text color for current appearance (Dark/Light mode)
         mutable.enumerateAttribute(.foregroundColor, in: fullRange, options: []) { value, range, _ in
             if let color = value as? NSColor {
                 let srgb = color.usingColorSpace(.sRGB) ?? color
@@ -93,7 +123,7 @@ public final class RichTextHelper {
             }
         }
         
-        // Ensure minimum font size for readability
+        // 3. Ensure minimum font size for readability
         mutable.enumerateAttribute(.font, in: fullRange, options: []) { value, range, _ in
             if let font = value as? NSFont {
                 if font.pointSize < 13 {
@@ -107,6 +137,29 @@ public final class RichTextHelper {
         }
         
         return mutable
+    }
+    
+    /// Normalizes paragraph styles so that embedded list markers (\t•\t, \t1\t) from WebKit HTML import
+    /// do not conflict with TextKit 2's automatic NSTextList markers.
+    private static func sanitizeListStyles(in mutable: NSMutableAttributedString) {
+        let nsString = mutable.string as NSString
+        let fullRange = NSRange(location: 0, length: mutable.length)
+        guard fullRange.length > 0 else { return }
+        
+        nsString.enumerateSubstrings(in: fullRange, options: [.byParagraphs]) { _, subRange, enclosingRange, _ in
+            guard subRange.length > 0 else { return }
+            let pText = nsString.substring(with: subRange)
+            let trimmed = pText.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("\t") || pText.hasPrefix("\t") {
+                mutable.enumerateAttribute(.paragraphStyle, in: enclosingRange, options: []) { val, range, _ in
+                    if let style = val as? NSParagraphStyle, !style.textLists.isEmpty {
+                        let newStyle = style.mutableCopy() as! NSMutableParagraphStyle
+                        newStyle.textLists = []
+                        mutable.addAttribute(.paragraphStyle, value: newStyle, range: range)
+                    }
+                }
+            }
+        }
     }
     
     public static func stripHTML(_ html: String) -> String {
