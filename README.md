@@ -25,7 +25,7 @@
 - **Adaptive Layouts**: Seamlessly switch between a horizontal card carousel with dominant app color extraction and a high-density vertical compact list.
 - **Flexible Presentation Modes**: Dock the panel as a bottom shelf, menu bar popover, centered spotlight palette, or attach it directly at your mouse cursor.
 - **Sequential Paste Queue**: Collect multiple clippings in batch and paste them consecutively across apps in FIFO, LIFO, or continuous Loop mode.
-- **Intelligent Sensitive Data Shield**: Real-time detection and masking for API keys (OpenAI, AWS, GitHub, Stripe, Slack), credit cards (Luhn validated), passwords, and custom user-defined regex rules.
+- **Intelligent Sensitive Data Shield**: Real-time multi-occurrence detection and masking for API keys (OpenAI, AWS, GitHub, Stripe, Slack), credit cards (Luhn validated), PII (Email addresses, Phone numbers, CCCD, SSN), passwords, and custom user-defined regex rules.
 - **Biometric Security & App Lock**: Lock clipboard history behind Touch ID, Apple Watch, or Mac password with customizable auto-lock timeouts and wake/sleep protection.
 - **AES-256 GCM Disk Encryption**: Stored media assets and sensitive cache payloads are encrypted using Apple CryptoKit with master keys secured in macOS Keychain.
 - **Rich Text & WYSIWYG Editor**: Built-in editor supporting plain text, styled RTF, sanitized HTML editing, and JSON formatting/validation.
@@ -92,9 +92,9 @@ The **Paste Queue** enables multi-item clipboard collection and sequential pasti
 > [!IMPORTANT]
 > LibrePaste operates 100% locally and offline on your Mac. No clipboard data, metadata, or telemetry is ever transmitted over the network.
 
-- **Sensitive Data Detection**: Automated identification of secrets with customizable masking strategies:
-  - *Keep Prefix & Suffix* (e.g., `sk-proj-••••••••••••3aB8`)
-  - *Keep Last 4 Only* (e.g., `••••••••••••1234`)
+- **Sensitive Data Detection**: Automated identification and multi-occurrence masking of secrets with customizable masking strategies:
+  - *Keep Prefix & Suffix* (e.g., `sk-proj-••••••••••••3aB8`, `j••••e@example.com`)
+  - *Keep Last 4 Only* (e.g., `••••••••••••1234`, `•••• •••• 5678`)
   - *Mask All* (e.g., `••••••••••••••••`)
 - **Custom Regex Rules**: Add custom regex pattern rules in Settings to automatically mask proprietary tokens, internal URLs, or custom credentials.
 - **Biometric Guard**: Require Touch ID, Apple Watch, or device password to unlock clipboard history or reveal masked credentials.

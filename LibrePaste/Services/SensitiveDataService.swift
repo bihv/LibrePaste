@@ -525,7 +525,6 @@ public final class SensitiveDataService: @unchecked Sendable {
                     guard match.range.location != NSNotFound,
                           match.range.location + match.range.length <= nsText.length,
                           match.range.length > 0 else { continue }
-                    let matched = nsText.substring(with: match.range)
                     let r1 = match.numberOfRanges > 1 ? match.range(at: 1) : NSRange(location: NSNotFound, length: 0)
                     let prefix = (r1.location != NSNotFound && r1.location + r1.length <= nsText.length) ? nsText.substring(with: r1) : ""
                     let masked = "\(prefix)••••••••••••"
