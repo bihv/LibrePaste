@@ -39,5 +39,6 @@ public struct SettingsView: View {
             }
         }
         .frame(width: 520, height: 490)
+        .preferredColorScheme(store.appAppearance.colorScheme)
     }
 }

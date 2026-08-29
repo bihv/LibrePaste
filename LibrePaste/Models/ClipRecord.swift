@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import AppKit
 import CoreTransferable
 import UniformTypeIdentifiers
 
@@ -95,14 +96,12 @@ nonisolated public struct ClipImageDragPayload: Codable, Transferable, Sendable 
             if item.fileURL.pathExtension.lowercased() == "png" {
                 return data
             }
-            #if os(macOS)
             if let image = NSImage(data: data),
                let tiff = image.tiffRepresentation,
                let bitmap = NSBitmapImageRep(data: tiff),
                let pngData = bitmap.representation(using: .png, properties: [:]) {
                 return pngData
             }
-            #endif
             return data
         }
         DataRepresentation(exportedContentType: .jpeg) { item in
@@ -110,17 +109,14 @@ nonisolated public struct ClipImageDragPayload: Codable, Transferable, Sendable 
             if ["jpg", "jpeg"].contains(item.fileURL.pathExtension.lowercased()) {
                 return data
             }
-            #if os(macOS)
             if let image = NSImage(data: data),
                let tiff = image.tiffRepresentation,
                let bitmap = NSBitmapImageRep(data: tiff),
                let jpegData = bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.9]) {
                 return jpegData
             }
-            #endif
             return data
         }
-        #if os(macOS)
         DataRepresentation(exportedContentType: .tiff) { item in
             let data = ThumbnailManager.shared.loadDecryptedImageData(from: item.fileURL.path) ?? Data()
             if let image = NSImage(data: data), let tiff = image.tiffRepresentation {
@@ -128,7 +124,6 @@ nonisolated public struct ClipImageDragPayload: Codable, Transferable, Sendable 
             }
             return data
         }
-        #endif
         FileRepresentation(exportedContentType: .png) { item in
             let tempURL = Self.createDecryptedTempFile(from: item.fileURL.path) ?? item.fileURL
             return SentTransferredFile(tempURL)
@@ -147,9 +142,6 @@ nonisolated public struct ClipImageDragPayload: Codable, Transferable, Sendable 
         CodableRepresentation(contentType: .json)
     }
 }
-
-#if os(macOS)
-import AppKit
 
 extension DragItemPayload {
     @MainActor private static var cachedChangeCount: Int = -1
@@ -173,7 +165,6 @@ extension DragItemPayload {
         return payload
     }
 }
-#endif
 
 public enum ClipType: String, Codable, CaseIterable, Identifiable {
     case text

@@ -12,6 +12,7 @@ import Combine
 public struct GeneralSettingsTab: View {
     @Bindable public var store: ClipboardStore
     
+    @State private var appAppearance: AppAppearance = .system
     @State private var launchAtLogin: Bool = false
     @State private var showInDock: Bool = true
     @State private var windowPresentationMode: WindowPresentationMode = .bottomShelf
@@ -38,6 +39,18 @@ public struct GeneralSettingsTab: View {
     public var body: some View {
         Form {
             Section("Interface & Appearance") {
+                Picker("Appearance", selection: $appAppearance) {
+                    ForEach(AppAppearance.allCases) { mode in
+                        Label(mode.displayName, systemImage: mode.systemImage).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: appAppearance) { _, val in
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        store.setAppAppearance(val)
+                    }
+                }
+                
                 Picker("Window Presentation", selection: $windowPresentationMode) {
                     ForEach(WindowPresentationMode.allCases) { mode in
                         Label(mode.displayName, systemImage: mode.systemImage).tag(mode)
@@ -320,6 +333,7 @@ public struct GeneralSettingsTab: View {
     // MARK: - Helpers
     
     private func loadSettings() {
+        appAppearance = store.appAppearance
         windowPresentationMode = store.windowPresentationMode
         clipLayoutStyle = store.clipLayoutStyle
         compactShowAppIcons = store.compactShowAppIcons

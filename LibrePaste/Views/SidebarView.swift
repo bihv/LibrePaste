@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AppKit
 import UniformTypeIdentifiers
 
 public struct SidebarView: View {
@@ -82,9 +83,7 @@ public struct SidebarView: View {
         let rawDestinationIndex = insertAfter ? newTargetIndex + 1 : newTargetIndex
         let destinationIndex = min(max(0, rawDestinationIndex), ids.count)
         ids.insert(item, at: destinationIndex)
-        #if os(macOS)
         NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .default)
-        #endif
         withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
             onReorder?(ids)
         }
@@ -137,9 +136,7 @@ public struct SidebarView: View {
                                 handleReorder(draggingId: draggingId, targetId: pinboard.id, insertAfter: insertAfter)
                             },
                             onAssignClip: { clipId in
-                                #if os(macOS)
                                 NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .default)
-                                #endif
                                 onAssignClip?(clipId, pinboard.id)
                             }
                         )
@@ -172,7 +169,7 @@ public struct SidebarView: View {
             }
         }
         .frame(width: isCollapsed ? 48 : 170)
-        .background(Color.primary.opacity(0.02))
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.4))
         .sheet(isPresented: $showingCreateSheet) {
             PinboardFormSheet(
                 initialName: "",
@@ -215,8 +212,17 @@ public struct SidebarView: View {
                 }
             }) {
                 Image(systemName: isCollapsed ? "sidebar.left" : "sidebar.leading")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.primary.opacity(0.85))
+                    .padding(5)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color(nsColor: .controlBackgroundColor).opacity(0.8))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
+                    )
             }
             .buttonStyle(.plain)
             .help(isCollapsed ? "Expand Sidebar" : "Collapse Sidebar")
@@ -224,7 +230,7 @@ public struct SidebarView: View {
             if !isCollapsed {
                 Text("Pinboards")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.primary.opacity(0.65))
                     .textCase(.uppercase)
                 
                 Spacer()
@@ -233,12 +239,15 @@ public struct SidebarView: View {
                     Image(systemName: "plus")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(Color.accentColor)
+                        .padding(4)
+                        .background(Color.accentColor.opacity(0.14))
+                        .clipShape(RoundedRectangle(cornerRadius: 5))
                 }
                 .buttonStyle(.plain)
                 .help("New Pinboard")
             }
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, isCollapsed ? 6 : 10)
         .padding(.top, 8)
         .padding(.bottom, 4)
     }
@@ -304,18 +313,20 @@ private struct SidebarNavItem: View {
     let helpText: String
     let action: () -> Void
     
+    @State private var isHovered = false
+    
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 12))
-                    .frame(width: 16)
+                    .font(.system(size: 12.5, weight: isSelected ? .bold : .medium))
+                    .frame(width: isCollapsed ? 20 : 16, height: isCollapsed ? 20 : 16)
                     .scaleEffect(isTargeted ? 1.25 : 1.0)
                     .animation(.easeInOut(duration: 0.15), value: isTargeted)
                 
                 if !isCollapsed {
                     Text(title)
-                        .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                        .font(.system(size: 12, weight: isSelected ? .semibold : .medium))
                         .lineLimit(1)
                     
                     Spacer()
@@ -331,20 +342,33 @@ private struct SidebarNavItem: View {
                     }
                 }
             }
-            .foregroundStyle(isTargeted ? Color.accentColor : (isSelected ? Color.accentColor : Color.primary))
-            .padding(.horizontal, 8)
+            .foregroundStyle(isTargeted ? Color.accentColor : (isSelected ? Color.accentColor : (isHovered ? Color.primary : Color.primary.opacity(0.85))))
+            .padding(.horizontal, isCollapsed ? 6 : 8)
             .padding(.vertical, 6)
+            .frame(maxWidth: isCollapsed ? 34 : .infinity)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(isTargeted ? Color.accentColor.opacity(0.24) : (isSelected ? Color.accentColor.opacity(0.12) : Color.clear))
+                    .fill(
+                        isTargeted
+                            ? Color.accentColor.opacity(0.24)
+                            : (isSelected
+                                ? Color.accentColor.opacity(0.16)
+                                : (isHovered ? Color.primary.opacity(0.08) : Color.clear))
+                    )
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(isTargeted ? Color.accentColor : Color.clear, lineWidth: 1.5)
+                    .strokeBorder(
+                        isTargeted
+                            ? Color.accentColor
+                            : (isSelected ? Color.accentColor.opacity(0.35) : (isHovered ? Color.primary.opacity(0.12) : Color.clear)),
+                        lineWidth: 1
+                    )
             )
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 6)
+        .padding(.horizontal, isCollapsed ? 4 : 6)
+        .onHover { isHovered = $0 }
         .help(helpText)
     }
 }
@@ -399,16 +423,22 @@ private struct PinboardItemRowView: View {
     
     var body: some View {
         HStack(spacing: 8) {
-            Circle()
-                .fill(pinboard.swiftUIColor)
-                .frame(width: 8, height: 8)
-                .frame(width: 16)
-                .scaleEffect(isClipDropTarget ? 1.35 : 1.0)
-                .animation(.easeInOut(duration: 0.15), value: isClipDropTarget)
+            ZStack {
+                Circle()
+                    .fill(pinboard.swiftUIColor)
+                    .frame(width: 9, height: 9)
+                Circle()
+                    .strokeBorder(Color.primary.opacity(0.2), lineWidth: 1)
+                    .frame(width: 9, height: 9)
+            }
+            .frame(width: isCollapsed ? 20 : 16, height: isCollapsed ? 20 : 16)
+            .scaleEffect(isClipDropTarget ? 1.35 : 1.0)
+            .animation(.easeInOut(duration: 0.15), value: isClipDropTarget)
             
             if !isCollapsed {
                 Text(pinboard.name)
-                    .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                    .font(.system(size: 12, weight: isSelected ? .semibold : .medium))
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.primary.opacity(0.9))
                     .lineLimit(1)
                 
                 Spacer()
@@ -416,25 +446,26 @@ private struct PinboardItemRowView: View {
                 if count > 0 {
                     Text("\(count)")
                         .font(.system(size: 10, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 5)
+                        .foregroundStyle(Color.primary.opacity(0.7))
+                        .padding(.horizontal, 5.5)
                         .padding(.vertical, 1.5)
-                        .background(Color.primary.opacity(0.06))
+                        .background(Color.primary.opacity(0.08))
                         .clipShape(Capsule())
                 }
             }
         }
         .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
-        .padding(.horizontal, 8)
+        .padding(.horizontal, isCollapsed ? 6 : 8)
         .padding(.vertical, 5)
+        .frame(maxWidth: isCollapsed ? 34 : .infinity)
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(
                     isClipDropTarget
-                        ? pinboard.swiftUIColor.opacity(0.22)
+                        ? pinboard.swiftUIColor.opacity(0.24)
                         : (isSelected
-                            ? Color.accentColor.opacity(0.12)
-                            : (isHovered ? Color.primary.opacity(0.05) : Color.clear))
+                            ? Color.accentColor.opacity(0.16)
+                            : (isHovered ? Color.primary.opacity(0.08) : Color.clear))
                 )
         )
         .overlay(
@@ -442,8 +473,8 @@ private struct PinboardItemRowView: View {
                 .strokeBorder(
                     isClipDropTarget
                         ? pinboard.swiftUIColor
-                        : Color.clear,
-                    lineWidth: 1.5
+                        : (isSelected ? Color.accentColor.opacity(0.35) : (isHovered ? Color.primary.opacity(0.12) : Color.clear)),
+                    lineWidth: 1
                 )
         )
         .overlay(alignment: .top) {
@@ -667,9 +698,7 @@ private struct AllClipsDropDelegate: DropDelegate {
               payload.kind == .clip else {
             return false
         }
-        #if os(macOS)
         NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .default)
-        #endif
         onAssignClip(payload.id)
         return true
     }
@@ -707,9 +736,7 @@ private struct PasteQueueDropDelegate: DropDelegate {
               payload.kind == .clip else {
             return false
         }
-        #if os(macOS)
         NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .default)
-        #endif
         onEnqueueClip(payload.id)
         return true
     }

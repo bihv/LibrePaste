@@ -28,6 +28,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     public func applicationDidFinishLaunching(_ notification: Notification) {
         AppDelegate.shared = self
         
+        // Apply saved appearance mode
+        store.applyAppearance(store.appAppearance)
+        
         // Setup Dock Icon & activation policy
         updateDockVisibility()
         
@@ -122,6 +125,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             self,
             selector: #selector(handleDisplayModeChanged),
             name: .displayModeChanged,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAppearanceChanged),
+            name: .appearanceChanged,
             object: nil
         )
     }
@@ -350,6 +359,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func handleDisplayModeChanged() {
         guard let panel = floatingPanel else { return }
         panel.reposition(mode: store.windowPresentationMode, layout: store.clipLayoutStyle, statusItem: statusItem, animated: panel.isVisible)
+    }
+    
+    @objc private func handleAppearanceChanged() {
+        store.applyAppearance(store.appAppearance)
     }
     
     // MARK: - Settings Window

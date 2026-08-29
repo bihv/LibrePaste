@@ -14,6 +14,7 @@ struct LibrePasteApp: App {
     var body: some Scene {
         Settings {
             SettingsView(store: appDelegate.store)
+                .preferredColorScheme(appDelegate.store.appAppearance.colorScheme)
         }
     }
 }

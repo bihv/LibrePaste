@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AppKit
 
 public struct TypeFilterView: View {
     @Binding public var selection: FilterType
@@ -27,29 +28,46 @@ public struct TypeFilterView: View {
                 }) {
                     HStack(spacing: 4) {
                         Image(systemName: type.systemImage)
-                            .font(.system(size: 10, weight: isSelected ? .bold : .regular))
+                            .font(.system(size: 10.5, weight: isSelected ? .bold : .medium))
                         
                         if !isCompact {
                             Text(type.displayName)
-                                .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                                .font(.system(size: 11, weight: isSelected ? .semibold : .medium))
                                 .lineLimit(1)
                                 .fixedSize(horizontal: true, vertical: false)
                         }
                     }
-                    .padding(.horizontal, isCompact ? 6 : 8)
-                    .padding(.vertical, 4)
-                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                    .padding(.horizontal, isCompact ? 7 : 9)
+                    .padding(.vertical, 4.5)
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.primary.opacity(0.75))
                     .background(
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill(isSelected ? Color.primary.opacity(0.12) : Color.clear)
+                            .fill(
+                                isSelected
+                                    ? Color.accentColor.opacity(0.16)
+                                    : Color.clear
+                            )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .strokeBorder(
+                                isSelected ? Color.accentColor.opacity(0.35) : Color.clear,
+                                lineWidth: 1
+                            )
                     )
                 }
                 .buttonStyle(.plain)
                 .help("Filter by \(type.displayName)")
             }
         }
-        .padding(2)
-        .background(Color.primary.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .padding(2.5)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.75))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
+        )
     }
 }

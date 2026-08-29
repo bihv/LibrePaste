@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AppKit
 
 public struct ClipboardView: View {
     @Bindable public var store: ClipboardStore
@@ -25,7 +26,7 @@ public struct ClipboardView: View {
                 headerBar
                 
                 Divider()
-                    .opacity(0.3)
+                    .opacity(0.55)
                 
                 // Body Content (Sidebar + Horizontal Cards / Vertical List)
                 HStack(spacing: 0) {
@@ -73,13 +74,13 @@ public struct ClipboardView: View {
                     )
                     
                     Divider()
-                        .opacity(0.3)
+                        .opacity(0.55)
                     
                     VStack(spacing: 0) {
                         if store.isQueueSelected {
                             queueControlBar
                             Divider()
-                                .opacity(0.3)
+                                .opacity(0.55)
                         }
                         
                         ClipListView(
@@ -135,7 +136,7 @@ public struct ClipboardView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 
                 Divider()
-                    .opacity(0.3)
+                    .opacity(0.55)
                 
                 // Footer Shortcuts (Adaptive ViewThatFits)
                 footerBar
@@ -151,7 +152,15 @@ public struct ClipboardView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.ultraThinMaterial)
+        .background(
+            ZStack {
+                Color(nsColor: .windowBackgroundColor)
+                    .opacity(0.88)
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+            }
+        )
+        .preferredColorScheme(store.appAppearance.colorScheme)
         .onAppear {
             if store.windowPresentationMode == .menuBarPopover || store.windowPresentationMode == .atCursor || store.clipLayoutStyle == .compactList {
                 isSidebarCollapsed = true
@@ -361,6 +370,7 @@ public struct ClipboardView: View {
             mediumHeaderBar
             compactHeaderBar
         }
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.45))
     }
     
     private var wideHeaderBar: some View {
@@ -425,6 +435,7 @@ public struct ClipboardView: View {
             if showText {
                 Text("LibrePaste")
                     .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.primary)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
             }
@@ -446,11 +457,17 @@ public struct ClipboardView: View {
             }
         }) {
             Image(systemName: store.clipLayoutStyle == .cards ? "list.bullet" : "rectangle.grid.1x2")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color.primary.opacity(0.85))
                 .padding(6)
-                .background(Color.primary.opacity(0.04))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color(nsColor: .controlBackgroundColor).opacity(0.8))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
+                )
         }
         .buttonStyle(.plain)
         .help(store.clipLayoutStyle == .cards ? "Switch to Vertical Compact List" : "Switch to Horizontal Cards")
@@ -460,7 +477,7 @@ public struct ClipboardView: View {
         Button(action: { store.togglePause() }) {
             HStack(spacing: 4) {
                 Image(systemName: store.isPaused ? "shield.slash.fill" : "shield.fill")
-                    .font(.system(size: 12))
+                    .font(.system(size: 12, weight: .semibold))
                 if store.isPaused && showText {
                     Text("Paused")
                         .font(.system(size: 11, weight: .semibold))
@@ -468,11 +485,17 @@ public struct ClipboardView: View {
                         .fixedSize(horizontal: true, vertical: false)
                 }
             }
-            .foregroundStyle(store.isPaused ? Color.orange : Color.secondary)
+            .foregroundStyle(store.isPaused ? Color.orange : Color.primary.opacity(0.85))
             .padding(.horizontal, (store.isPaused && showText) ? 8 : 6)
-            .padding(.vertical, 5)
-            .background(store.isPaused ? Color.orange.opacity(0.14) : Color.primary.opacity(0.04))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .padding(.vertical, 5.5)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(store.isPaused ? Color.orange.opacity(0.16) : Color(nsColor: .controlBackgroundColor).opacity(0.8))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(store.isPaused ? Color.orange.opacity(0.35) : Color.primary.opacity(0.12), lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
         .help(store.isPaused ? "Resume Clipboard Watcher" : "Pause Clipboard Watcher (Incognito)")
@@ -483,11 +506,17 @@ public struct ClipboardView: View {
             NotificationCenter.default.post(name: .openSettingsWindow, object: nil)
         }) {
             Image(systemName: "gearshape")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color.primary.opacity(0.85))
                 .padding(6)
-                .background(Color.primary.opacity(0.04))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color(nsColor: .controlBackgroundColor).opacity(0.8))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
+                )
         }
         .buttonStyle(.plain)
         .help("Open Settings")
@@ -497,19 +526,31 @@ public struct ClipboardView: View {
         Button(action: { store.clearAll() }) {
             if isCompact {
                 Image(systemName: "trash")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.primary.opacity(0.85))
                     .padding(6)
-                    .background(Color.primary.opacity(0.04))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color(nsColor: .controlBackgroundColor).opacity(0.8))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
+                    )
             } else {
                 Text("Clear All")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.primary.opacity(0.85))
                     .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .background(Color.primary.opacity(0.04))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .padding(.vertical, 5.5)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color(nsColor: .controlBackgroundColor).opacity(0.8))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
+                    )
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
             }
@@ -698,17 +739,24 @@ public struct ClipboardView: View {
     }
     
     private func shortcutHint(_ key: String, _ label: String) -> some View {
-        HStack(spacing: 3.5) {
+        HStack(spacing: 4) {
             Text(key)
                 .font(.system(size: 9.5, weight: .bold, design: .monospaced))
-                .padding(.horizontal, 4)
+                .foregroundStyle(Color.primary.opacity(0.85))
+                .padding(.horizontal, 4.5)
                 .padding(.vertical, 1.5)
-                .background(Color.primary.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 3.5))
+                .background(
+                    RoundedRectangle(cornerRadius: 3.5)
+                        .fill(Color(nsColor: .controlBackgroundColor).opacity(0.9))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 3.5)
+                        .strokeBorder(Color.primary.opacity(0.14), lineWidth: 1)
+                )
                 .fixedSize(horizontal: true, vertical: false)
             Text(label)
-                .font(.system(size: 10, weight: .regular))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(Color.primary.opacity(0.7))
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
         }

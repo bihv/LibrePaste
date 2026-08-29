@@ -46,9 +46,7 @@ public final class PasteQueueManager {
         items.append(newItem)
         saveQueueToSettings()
         
-        #if os(macOS)
         NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .default)
-        #endif
         
         if isCollectModeActive && !isHUDVisible {
             showHUD()
@@ -62,9 +60,7 @@ public final class PasteQueueManager {
         }
         saveQueueToSettings()
         
-        #if os(macOS)
         NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .default)
-        #endif
     }
     
     public func remove(id: UUID) {
@@ -130,9 +126,7 @@ public final class PasteQueueManager {
         }
         saveQueueToSettings()
         
-        #if os(macOS)
         NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .default)
-        #endif
         
         if items.isEmpty && autoHideWhenEmpty {
             hideHUD()
@@ -187,9 +181,7 @@ public final class PasteQueueManager {
         }
         saveQueueToSettings()
         
-        #if os(macOS)
         NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .default)
-        #endif
         
         if items.isEmpty && autoHideWhenEmpty {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in

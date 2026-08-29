@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AppKit
 
 public struct SearchBarView: View {
     @Binding public var text: String
@@ -23,12 +24,13 @@ public struct SearchBarView: View {
     public var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(isFocused ? Color.accentColor : Color.secondary)
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundStyle(isFocused ? Color.accentColor : Color.primary.opacity(0.6))
             
             TextField("Search clipboard...", text: $text)
                 .textFieldStyle(.plain)
                 .font(.system(size: 12))
+                .foregroundStyle(Color.primary)
                 .focused($isFocused)
                 .onChange(of: isFocused) { _, newValue in
                     isFocusedBinding?.wrappedValue = newValue
@@ -45,19 +47,24 @@ public struct SearchBarView: View {
                     onClear()
                 }) {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Color.primary.opacity(0.6))
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
-        .background(Color.primary.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.85))
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(isFocused ? Color.accentColor.opacity(0.5) : Color.clear, lineWidth: 1)
+                .strokeBorder(
+                    isFocused ? Color.accentColor.opacity(0.65) : Color.primary.opacity(0.14),
+                    lineWidth: 1
+                )
         )
         .frame(minWidth: 140, maxWidth: 320)
         .contentShape(Rectangle())

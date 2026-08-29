@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AppKit
 
 public enum ClipAction {
     case select
@@ -166,11 +167,7 @@ public struct ClipCardView: View {
     // MARK: - Subviews
     
     private var cardBackgroundColor: Color {
-        #if os(macOS)
-        return Color(nsColor: .windowBackgroundColor).opacity(0.85)
-        #else
-        return Color.secondary.opacity(0.15)
-        #endif
+        Color(nsColor: .windowBackgroundColor).opacity(0.85)
     }
     
     private var displayPreviewText: String {
@@ -483,7 +480,6 @@ private struct ClipCardDragPreview: View {
     
     var body: some View {
         HStack(spacing: 8) {
-            #if os(macOS)
             if clip.type == .image,
                let path = clip.imagePath,
                let img = ThumbnailManager.shared.cachedThumbnail(for: path) ?? ThumbnailManager.shared.loadFullImage(from: path) {
@@ -500,14 +496,6 @@ private struct ClipCardDragPreview: View {
                     .background((clip.isSensitive ? (clip.sensitiveType?.themeColor ?? .orange) : clip.type.themeColor).opacity(0.16))
                     .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
-            #else
-            Image(systemName: clip.isSensitive ? (clip.sensitiveType?.iconName ?? "lock.shield.fill") : clip.type.systemImage)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(clip.isSensitive ? (clip.sensitiveType?.themeColor ?? .orange) : clip.type.themeColor)
-                .frame(width: 26, height: 26)
-                .background((clip.isSensitive ? (clip.sensitiveType?.themeColor ?? .orange) : clip.type.themeColor).opacity(0.16))
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            #endif
             
             VStack(alignment: .leading, spacing: 2) {
                 if let source = clip.sourceName, !source.isEmpty {

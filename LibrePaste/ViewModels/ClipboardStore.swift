@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Observation
+import AppKit
 
 @Observable
 public final class ClipboardStore {
@@ -48,6 +49,7 @@ public final class ClipboardStore {
     public var settings: [String: String] = [:]
     
     // MARK: - Display & Layout Modes
+    public var appAppearance: AppAppearance = .system
     public var windowPresentationMode: WindowPresentationMode = .bottomShelf
     public var clipLayoutStyle: ClipLayoutStyle = .cards
     public var compactShowAppIcons: Bool = true
@@ -131,6 +133,11 @@ public final class ClipboardStore {
             DatabaseManager.shared.purgeSensitiveClips(olderThanHours: autoPurgeHours)
         }
         
+        // Appearance setting
+        let appearanceRaw = settings["appAppearance"] ?? AppAppearance.system.rawValue
+        appAppearance = AppAppearance(rawValue: appearanceRaw) ?? .system
+        applyAppearance(appAppearance)
+        
         // Display mode settings
         let modeRaw = settings["windowPresentationMode"] ?? WindowPresentationMode.bottomShelf.rawValue
         windowPresentationMode = WindowPresentationMode(rawValue: modeRaw) ?? .bottomShelf
@@ -143,6 +150,22 @@ public final class ClipboardStore {
         compactPreviewLines = Int(settings["compactPreviewLines"] ?? "2") ?? 2
         
         reloadCustomSensitiveRules()
+    }
+    
+    public func setAppAppearance(_ appearance: AppAppearance) {
+        appAppearance = appearance
+        saveSetting(key: "appAppearance", value: appearance.rawValue)
+        applyAppearance(appearance)
+        NotificationCenter.default.post(name: .appearanceChanged, object: nil)
+    }
+    
+    public func applyAppearance(_ appearance: AppAppearance) {
+        DispatchQueue.main.async {
+            NSApp.appearance = appearance.nsAppearance
+            for window in NSApp.windows {
+                window.appearance = appearance.nsAppearance
+            }
+        }
     }
     
     public func setWindowPresentationMode(_ mode: WindowPresentationMode) {
@@ -338,4 +361,5 @@ extension Notification.Name {
     public static let panelDidShow = Notification.Name("panelDidShow")
     public static let panelDidHide = Notification.Name("panelDidHide")
     public static let displayModeChanged = Notification.Name("displayModeChanged")
+    public static let appearanceChanged = Notification.Name("appearanceChanged")
 }
