@@ -29,8 +29,9 @@
 - **Biometric Security & App Lock**: Lock clipboard history behind Touch ID, Apple Watch, or Mac password with customizable auto-lock timeouts and wake/sleep protection.
 - **AES-256 GCM Disk Encryption**: Stored media assets and sensitive cache payloads are encrypted using Apple CryptoKit with master keys secured in macOS Keychain.
 - **Rich Text & WYSIWYG Editor**: Built-in editor supporting plain text, styled RTF, sanitized HTML editing, and JSON formatting/validation.
-- **Instant Quick Look**: Press <kbd>Space</kbd> or <kbd>P</kbd> to inspect full-resolution media, structured JSON trees, color hex codes, URLs, and word/character analytics.
-- **Smart Pinboards & Organization**: Pin favorite clippings, organize items into custom-colored boards, and filter by type (Text, Link, Image, Code, Color).
+- **Instant Quick Look**: Press <kbd>Space</kbd> or <kbd>P</kbd> to inspect full-resolution media, structured JSON trees, color hex swatches, URL favicon previews, and word/character analytics.
+- **Smart Pinboards & Clip Renaming**: Pin favorite clippings, assign custom clip names/aliases (<kbd>R</kbd>), organize items into custom-colored boards, and filter by type (Text, Link, Image, Code, Color).
+- **Automatic Favicon & Color Previews**: High-resolution favicon fetching and caching for web links, along with real-time color badge swatches and format conversions (HEX, RGB, HSL).
 - **Drag & Drop Integration**: Drag clippings directly into text editors, IDEs, browsers, Figma, or design tools with rich native data representations.
 - **Multi-Language Support**: Full internationalization with runtime switching between English (`en`) and Vietnamese (`vi`), alongside System Default.
 - **App Appearance Controls**: Seamlessly toggle between System Default, Always Light, and Always Dark appearance modes.
@@ -57,6 +58,7 @@
 | <kbd>←</kbd> / <kbd>→</kbd> or <kbd>↑</kbd> / <kbd>↓</kbd> | Navigate clip cards / list items |
 | <kbd>⌘</kbd> + <kbd>F</kbd> or <kbd>/</kbd> | Focus instant search bar |
 | <kbd>Space</kbd> or <kbd>P</kbd> | Toggle Quick Look preview window |
+| <kbd>R</kbd> | Rename selected clip with custom title |
 | <kbd>E</kbd> | Open Rich Text / HTML / JSON editor |
 | <kbd>Q</kbd> | Add to / Remove selected clip from Paste Queue |
 | <kbd>⌘</kbd> + <kbd>⌫</kbd> | Delete selected clip from history |

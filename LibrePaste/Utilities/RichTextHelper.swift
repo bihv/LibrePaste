@@ -162,7 +162,7 @@ public final class RichTextHelper {
         }
     }
     
-    public static func stripHTML(_ html: String) -> String {
+    public nonisolated static func stripHTML(_ html: String) -> String {
         guard html.contains("<") && html.contains(">") else {
             return html
         }
