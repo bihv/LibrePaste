@@ -420,6 +420,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         let targetScreen = screen ?? targetScreenForActiveWorkspace()
         if let win = NSApp.windows.first(where: {
             !($0 is NSPanel) &&
+            !$0.isSheet &&
             !$0.className.contains("StatusBar") &&
             $0 != self.previewWindow &&
             $0 != self.editWindow
@@ -449,6 +450,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                     DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                         if let win = NSApp.windows.first(where: {
                             !($0 is NSPanel) &&
+                            !$0.isSheet &&
                             !$0.className.contains("StatusBar") &&
                             $0 != self.previewWindow &&
                             $0 != self.editWindow
@@ -602,7 +604,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             showFloatingPanel()
         } else {
             let hasOtherVisibleWindows = NSApp.windows.contains { win in
-                win != self.previewWindow && win != self.editWindow && win.isVisible && !(win is NSPanel) && !win.className.contains("StatusBar")
+                win != self.previewWindow && win != self.editWindow && win.isVisible && !(win is NSPanel) && !win.isSheet && !win.className.contains("StatusBar")
             }
             if !hasOtherVisibleWindows {
                 NSApp.deactivate()
@@ -708,7 +710,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             showFloatingPanel()
         } else {
             let hasOtherVisibleWindows = NSApp.windows.contains { win in
-                win != self.previewWindow && win != self.editWindow && win.isVisible && !(win is NSPanel) && !win.className.contains("StatusBar")
+                win != self.previewWindow && win != self.editWindow && win.isVisible && !(win is NSPanel) && !win.isSheet && !win.className.contains("StatusBar")
             }
             if !hasOtherVisibleWindows {
                 NSApp.deactivate()
@@ -729,7 +731,7 @@ extension AppDelegate: NSWindowDelegate {
                 showFloatingPanel()
             } else {
                 let hasOtherVisibleWindows = NSApp.windows.contains { win in
-                    win != window && win.isVisible && !(win is NSPanel) && !win.className.contains("StatusBar")
+                    win != window && win.isVisible && !(win is NSPanel) && !win.isSheet && !win.className.contains("StatusBar")
                 }
                 if !hasOtherVisibleWindows {
                     NSApp.deactivate()
@@ -742,7 +744,7 @@ extension AppDelegate: NSWindowDelegate {
                 showFloatingPanel()
             } else {
                 let hasOtherVisibleWindows = NSApp.windows.contains { win in
-                    win != window && win.isVisible && !(win is NSPanel) && !win.className.contains("StatusBar")
+                    win != window && win.isVisible && !(win is NSPanel) && !win.isSheet && !win.className.contains("StatusBar")
                 }
                 if !hasOtherVisibleWindows {
                     NSApp.deactivate()
@@ -753,7 +755,7 @@ extension AppDelegate: NSWindowDelegate {
             updateDockVisibility()
             
             let hasOtherVisibleWindows = NSApp.windows.contains { win in
-                win != window && win.isVisible && !(win is NSPanel) && !win.className.contains("StatusBar")
+                win != window && win.isVisible && !(win is NSPanel) && !win.isSheet && !win.className.contains("StatusBar")
             }
             if !hasOtherVisibleWindows {
                 NSApp.deactivate()
