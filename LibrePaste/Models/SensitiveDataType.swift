@@ -76,7 +76,10 @@ public enum SensitiveDataType: String, Codable, CaseIterable, Identifiable, Send
     case databaseUrl = "databaseUrl"
     case bearerToken = "bearerToken"
     case nationalId = "nationalId"
+    case email = "email"
+    case phoneNumber = "phoneNumber"
     case password = "password"
+    case mixed = "mixed"
     case custom = "custom"
     
     public var id: String { rawValue }
@@ -89,7 +92,10 @@ public enum SensitiveDataType: String, Codable, CaseIterable, Identifiable, Send
         case .databaseUrl: return L10n.tr("Database URL")
         case .bearerToken: return L10n.tr("Auth Token")
         case .nationalId: return L10n.tr("ID / PII")
+        case .email: return L10n.tr("Email")
+        case .phoneNumber: return L10n.tr("Phone")
         case .password: return L10n.tr("Password")
+        case .mixed: return L10n.tr("Multiple Secrets")
         case .custom: return L10n.tr("Custom Rule")
         }
     }
@@ -102,7 +108,10 @@ public enum SensitiveDataType: String, Codable, CaseIterable, Identifiable, Send
         case .databaseUrl: return "server.rack"
         case .bearerToken: return "shield.lefthalf.filled"
         case .nationalId: return "person.text.rectangle.fill"
+        case .email: return "envelope.fill"
+        case .phoneNumber: return "phone.fill"
         case .password: return "lock.fill"
+        case .mixed: return "shield.checkered"
         case .custom: return "wrench.and.screwdriver.fill"
         }
     }
@@ -115,7 +124,10 @@ public enum SensitiveDataType: String, Codable, CaseIterable, Identifiable, Send
         case .databaseUrl: return Color(red: 0.35, green: 0.55, blue: 0.95) // Blue
         case .bearerToken: return Color(red: 0.65, green: 0.4, blue: 0.95) // Purple
         case .nationalId: return Color(red: 0.2, green: 0.75, blue: 0.85) // Cyan
+        case .email: return Color(red: 0.25, green: 0.65, blue: 0.95) // Sky Blue
+        case .phoneNumber: return Color(red: 0.3, green: 0.75, blue: 0.45) // Green
         case .password: return Color(red: 0.9, green: 0.3, blue: 0.4) // Rose
+        case .mixed: return Color(red: 0.95, green: 0.55, blue: 0.2) // Orange-Amber
         case .custom: return Color(red: 0.55, green: 0.55, blue: 0.6) // Slate
         }
     }

@@ -150,7 +150,7 @@ public struct PrivacySettingsTab: View {
                                     store.reloadClips()
                                 }
                             
-                            Toggle(L10n.tr("Personal Identifiable Information (CCCD, SSN)"), isOn: $maskPII)
+                            Toggle(L10n.tr("Personal Identifiable Information (Email, Phone, CCCD, SSN)"), isOn: $maskPII)
                                 .font(.system(size: 12.5))
                                 .onChange(of: maskPII) { _, val in
                                     store.saveSetting(key: "maskPII", value: val ? "true" : "false")

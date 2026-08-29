@@ -3973,6 +3973,23 @@
         }
       }
     },
+    "Multiple Secrets" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Multiple Secrets"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhiều thông tin bảo mật"
+          }
+        }
+      }
+    },
     "Native clipboard history manager for macOS.\nCrafted with Swift & SwiftUI." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4666,6 +4683,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Thông tin định danh cá nhân (CCCD, CMND, SSN)"
+          }
+        }
+      }
+    },
+    "Personal Identifiable Information (Email, Phone, CCCD, SSN)" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Personal Identifiable Information (Email, Phone, CCCD, SSN)"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thông tin định danh cá nhân (Email, SĐT, CCCD, SSN)"
           }
         }
       }

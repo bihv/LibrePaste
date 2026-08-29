@@ -89,6 +89,18 @@ public final class SensitiveDataService: @unchecked Sendable {
     )
     
     // 4. Personal Identifiable Information (PII)
+    // Email Address
+    private let emailRegex = try? NSRegularExpression(
+        pattern: #"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"#,
+        options: .caseInsensitive
+    )
+    
+    // Phone Number (International or national formatted with 9 to 15 digits)
+    private let phoneRegex = try? NSRegularExpression(
+        pattern: #"(?:\+?[0-9]{1,3}[-.\s]?)?(?:\(?\d{2,4}\)?[-.\s]?)?\d{3,4}[-.\s]?\d{3,4}\b"#,
+        options: []
+    )
+    
     // Vietnam CCCD (12 digits with valid 3-digit province prefix)
     private let vnCitizenIdRegex = try? NSRegularExpression(
         pattern: #"\b(0[0-9]{2}[0-3][0-9]{2}[0-9]{6})\b"#,
@@ -248,7 +260,16 @@ public final class SensitiveDataService: @unchecked Sendable {
     
     // MARK: - Detection Core Engine
     
+    private struct DetectedMatch {
+        let range: NSRange
+        let maskedSubstring: String
+        let type: SensitiveDataType
+        let customRuleName: String?
+        let priority: Int
+    }
+    
     /// Detects whether a string contains sensitive data, returning match info and masked preview.
+    /// All occurrences of sensitive patterns are identified and masked across the entire text.
     public func detectSensitiveData(in text: String) -> SensitiveMatchResult? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
@@ -287,141 +308,258 @@ public final class SensitiveDataService: @unchecked Sendable {
         let maskDatabaseUrls = (settings["maskDatabaseUrls"] ?? "true") == "true"
         let maskPII = (settings["maskPII"] ?? "true") == "true"
         
+        var discoveredMatches: [DetectedMatch] = []
+        
         // 0. User-defined Custom Rules (Highest priority, precompiled)
         for (rule, regex) in activeCompiledRules {
-            if let match = regex.firstMatch(in: scanText, options: [], range: fullRange) {
+            let matches = regex.matches(in: scanText, options: [], range: fullRange)
+            for match in matches {
+                guard match.range.location != NSNotFound,
+                      match.range.location + match.range.length <= nsText.length,
+                      match.range.length > 0 else { continue }
                 let matchedSubstring = nsText.substring(with: match.range)
                 let masked = applyMask(to: matchedSubstring, strategy: rule.maskStrategy)
-                let maskedFull = maskFullText(text: scanText, matchRange: match.range, maskedSubstring: masked)
-                return SensitiveMatchResult(
+                discoveredMatches.append(DetectedMatch(
+                    range: match.range,
+                    maskedSubstring: masked,
                     type: .custom,
-                    matchedSubstring: matchedSubstring,
-                    maskedPreview: maskedFull,
-                    customRuleName: rule.name
-                )
+                    customRuleName: rule.name,
+                    priority: 0
+                ))
             }
         }
         
         // 1. Private Key (RSA / EC / SSH / PEM)
         if maskApiKeys, let privateKeyRegex = privateKeyRegex {
-            if let match = privateKeyRegex.firstMatch(in: scanText, options: [], range: fullRange) {
+            let matches = privateKeyRegex.matches(in: scanText, options: [], range: fullRange)
+            for match in matches {
+                guard match.range.location != NSNotFound,
+                      match.range.location + match.range.length <= nsText.length,
+                      match.range.length > 0 else { continue }
                 let matched = nsText.substring(with: match.range)
                 let masked = maskPrivateKeyPem(matched)
-                let maskedFull = maskFullText(text: scanText, matchRange: match.range, maskedSubstring: masked)
-                return SensitiveMatchResult(type: .privateKey, matchedSubstring: matched, maskedPreview: maskedFull)
+                discoveredMatches.append(DetectedMatch(
+                    range: match.range,
+                    maskedSubstring: masked,
+                    type: .privateKey,
+                    customRuleName: nil,
+                    priority: 1
+                ))
             }
         }
         
         // 2. OpenAI API Keys (sk-..., sk-proj-...)
         if maskApiKeys, let openAIKeyRegex = openAIKeyRegex {
-            if let match = openAIKeyRegex.firstMatch(in: scanText, options: [], range: fullRange) {
+            let matches = openAIKeyRegex.matches(in: scanText, options: [], range: fullRange)
+            for match in matches {
+                guard match.range.location != NSNotFound,
+                      match.range.location + match.range.length <= nsText.length,
+                      match.range.length > 0 else { continue }
                 let matched = nsText.substring(with: match.range)
                 let masked = maskApiKey(matched, prefixCount: 8, suffixCount: 4)
-                let maskedFull = maskFullText(text: scanText, matchRange: match.range, maskedSubstring: masked)
-                return SensitiveMatchResult(type: .apiKey, matchedSubstring: matched, maskedPreview: maskedFull)
+                discoveredMatches.append(DetectedMatch(
+                    range: match.range,
+                    maskedSubstring: masked,
+                    type: .apiKey,
+                    customRuleName: nil,
+                    priority: 2
+                ))
             }
         }
         
         // 3. Anthropic API Keys (sk-ant-...)
         if maskApiKeys, let anthropicKeyRegex = anthropicKeyRegex {
-            if let match = anthropicKeyRegex.firstMatch(in: scanText, options: [], range: fullRange) {
+            let matches = anthropicKeyRegex.matches(in: scanText, options: [], range: fullRange)
+            for match in matches {
+                guard match.range.location != NSNotFound,
+                      match.range.location + match.range.length <= nsText.length,
+                      match.range.length > 0 else { continue }
                 let matched = nsText.substring(with: match.range)
                 let masked = maskApiKey(matched, prefixCount: 7, suffixCount: 4)
-                let maskedFull = maskFullText(text: scanText, matchRange: match.range, maskedSubstring: masked)
-                return SensitiveMatchResult(type: .apiKey, matchedSubstring: matched, maskedPreview: maskedFull)
+                discoveredMatches.append(DetectedMatch(
+                    range: match.range,
+                    maskedSubstring: masked,
+                    type: .apiKey,
+                    customRuleName: nil,
+                    priority: 3
+                ))
             }
         }
         
         // 4. GitHub Tokens (ghp_..., gho_..., etc.)
         if maskApiKeys, let githubTokenRegex = githubTokenRegex {
-            if let match = githubTokenRegex.firstMatch(in: scanText, options: [], range: fullRange) {
+            let matches = githubTokenRegex.matches(in: scanText, options: [], range: fullRange)
+            for match in matches {
+                guard match.range.location != NSNotFound,
+                      match.range.location + match.range.length <= nsText.length,
+                      match.range.length > 0 else { continue }
                 let matched = nsText.substring(with: match.range)
                 let masked = maskApiKey(matched, prefixCount: 4, suffixCount: 4)
-                let maskedFull = maskFullText(text: scanText, matchRange: match.range, maskedSubstring: masked)
-                return SensitiveMatchResult(type: .apiKey, matchedSubstring: matched, maskedPreview: maskedFull)
+                discoveredMatches.append(DetectedMatch(
+                    range: match.range,
+                    maskedSubstring: masked,
+                    type: .apiKey,
+                    customRuleName: nil,
+                    priority: 4
+                ))
             }
         }
         
         // 5. AWS Keys (AKIA...)
         if maskApiKeys, let awsKeyRegex = awsKeyRegex {
-            if let match = awsKeyRegex.firstMatch(in: scanText, options: [], range: fullRange) {
+            let matches = awsKeyRegex.matches(in: scanText, options: [], range: fullRange)
+            for match in matches {
+                guard match.range.location != NSNotFound,
+                      match.range.location + match.range.length <= nsText.length,
+                      match.range.length > 0 else { continue }
                 let matched = nsText.substring(with: match.range)
                 let masked = maskApiKey(matched, prefixCount: 4, suffixCount: 4)
-                let maskedFull = maskFullText(text: scanText, matchRange: match.range, maskedSubstring: masked)
-                return SensitiveMatchResult(type: .apiKey, matchedSubstring: matched, maskedPreview: maskedFull)
+                discoveredMatches.append(DetectedMatch(
+                    range: match.range,
+                    maskedSubstring: masked,
+                    type: .apiKey,
+                    customRuleName: nil,
+                    priority: 5
+                ))
             }
         }
         
         // 6. Stripe Secret Keys (sk_live_...)
         if maskApiKeys, let stripeKeyRegex = stripeKeyRegex {
-            if let match = stripeKeyRegex.firstMatch(in: scanText, options: [], range: fullRange) {
+            let matches = stripeKeyRegex.matches(in: scanText, options: [], range: fullRange)
+            for match in matches {
+                guard match.range.location != NSNotFound,
+                      match.range.location + match.range.length <= nsText.length,
+                      match.range.length > 0 else { continue }
                 let matched = nsText.substring(with: match.range)
                 let masked = maskApiKey(matched, prefixCount: 8, suffixCount: 4)
-                let maskedFull = maskFullText(text: scanText, matchRange: match.range, maskedSubstring: masked)
-                return SensitiveMatchResult(type: .apiKey, matchedSubstring: matched, maskedPreview: maskedFull)
+                discoveredMatches.append(DetectedMatch(
+                    range: match.range,
+                    maskedSubstring: masked,
+                    type: .apiKey,
+                    customRuleName: nil,
+                    priority: 6
+                ))
             }
         }
         
         // 7. Google API Keys (AIza...)
         if maskApiKeys, let googleApiKeyRegex = googleApiKeyRegex {
-            if let match = googleApiKeyRegex.firstMatch(in: scanText, options: [], range: fullRange) {
+            let matches = googleApiKeyRegex.matches(in: scanText, options: [], range: fullRange)
+            for match in matches {
+                guard match.range.location != NSNotFound,
+                      match.range.location + match.range.length <= nsText.length,
+                      match.range.length > 0 else { continue }
                 let matched = nsText.substring(with: match.range)
                 let masked = maskApiKey(matched, prefixCount: 4, suffixCount: 4)
-                let maskedFull = maskFullText(text: scanText, matchRange: match.range, maskedSubstring: masked)
-                return SensitiveMatchResult(type: .apiKey, matchedSubstring: matched, maskedPreview: maskedFull)
+                discoveredMatches.append(DetectedMatch(
+                    range: match.range,
+                    maskedSubstring: masked,
+                    type: .apiKey,
+                    customRuleName: nil,
+                    priority: 7
+                ))
             }
         }
         
         // 8. Slack Tokens (xoxb-...)
         if maskApiKeys, let slackTokenRegex = slackTokenRegex {
-            if let match = slackTokenRegex.firstMatch(in: scanText, options: [], range: fullRange) {
+            let matches = slackTokenRegex.matches(in: scanText, options: [], range: fullRange)
+            for match in matches {
+                guard match.range.location != NSNotFound,
+                      match.range.location + match.range.length <= nsText.length,
+                      match.range.length > 0 else { continue }
                 let matched = nsText.substring(with: match.range)
                 let masked = maskApiKey(matched, prefixCount: 5, suffixCount: 4)
-                let maskedFull = maskFullText(text: scanText, matchRange: match.range, maskedSubstring: masked)
-                return SensitiveMatchResult(type: .apiKey, matchedSubstring: matched, maskedPreview: maskedFull)
+                discoveredMatches.append(DetectedMatch(
+                    range: match.range,
+                    maskedSubstring: masked,
+                    type: .apiKey,
+                    customRuleName: nil,
+                    priority: 8
+                ))
             }
         }
         
-        // 9. Database Connections (e.g. postgres://user:pass@host:5432/db)
+        // 9. Database Connections & Secrets
         if maskDatabaseUrls {
-            if let dbConnectionRegex = dbConnectionRegex,
-               let match = dbConnectionRegex.firstMatch(in: scanText, options: [], range: fullRange) {
-                let matched = nsText.substring(with: match.range)
-                let masked = maskDatabaseUrl(matched)
-                let maskedFull = maskFullText(text: scanText, matchRange: match.range, maskedSubstring: masked)
-                return SensitiveMatchResult(type: .databaseUrl, matchedSubstring: matched, maskedPreview: maskedFull)
+            if let dbConnectionRegex = dbConnectionRegex {
+                let matches = dbConnectionRegex.matches(in: scanText, options: [], range: fullRange)
+                for match in matches {
+                    guard match.range.location != NSNotFound,
+                          match.range.location + match.range.length <= nsText.length,
+                          match.range.length > 0 else { continue }
+                    let matched = nsText.substring(with: match.range)
+                    let masked = maskDatabaseUrl(matched)
+                    discoveredMatches.append(DetectedMatch(
+                        range: match.range,
+                        maskedSubstring: masked,
+                        type: .databaseUrl,
+                        customRuleName: nil,
+                        priority: 9
+                    ))
+                }
             }
             
-            if let genericUriCredentialsRegex = genericUriCredentialsRegex,
-               let match = genericUriCredentialsRegex.firstMatch(in: scanText, options: [], range: fullRange) {
-                let matched = nsText.substring(with: match.range)
-                let masked = maskGenericUriCredentials(matched)
-                let maskedFull = maskFullText(text: scanText, matchRange: match.range, maskedSubstring: masked)
-                return SensitiveMatchResult(type: .databaseUrl, matchedSubstring: matched, maskedPreview: maskedFull)
+            if let genericUriCredentialsRegex = genericUriCredentialsRegex {
+                let matches = genericUriCredentialsRegex.matches(in: scanText, options: [], range: fullRange)
+                for match in matches {
+                    guard match.range.location != NSNotFound,
+                          match.range.location + match.range.length <= nsText.length,
+                          match.range.length > 0 else { continue }
+                    let matched = nsText.substring(with: match.range)
+                    let masked = maskGenericUriCredentials(matched)
+                    discoveredMatches.append(DetectedMatch(
+                        range: match.range,
+                        maskedSubstring: masked,
+                        type: .databaseUrl,
+                        customRuleName: nil,
+                        priority: 10
+                    ))
+                }
             }
             
-            if let keyValueSecretRegex = keyValueSecretRegex,
-               let match = keyValueSecretRegex.firstMatch(in: scanText, options: [], range: fullRange) {
-                let matched = nsText.substring(with: match.range)
-                let r1 = match.numberOfRanges > 1 ? match.range(at: 1) : NSRange(location: NSNotFound, length: 0)
-                let prefix = (r1.location != NSNotFound && r1.location + r1.length <= nsText.length) ? nsText.substring(with: r1) : ""
-                let masked = "\(prefix)••••••••••••"
-                let maskedFull = maskFullText(text: scanText, matchRange: match.range, maskedSubstring: masked)
-                return SensitiveMatchResult(type: .databaseUrl, matchedSubstring: matched, maskedPreview: maskedFull)
+            if let keyValueSecretRegex = keyValueSecretRegex {
+                let matches = keyValueSecretRegex.matches(in: scanText, options: [], range: fullRange)
+                for match in matches {
+                    guard match.range.location != NSNotFound,
+                          match.range.location + match.range.length <= nsText.length,
+                          match.range.length > 0 else { continue }
+                    let matched = nsText.substring(with: match.range)
+                    let r1 = match.numberOfRanges > 1 ? match.range(at: 1) : NSRange(location: NSNotFound, length: 0)
+                    let prefix = (r1.location != NSNotFound && r1.location + r1.length <= nsText.length) ? nsText.substring(with: r1) : ""
+                    let masked = "\(prefix)••••••••••••"
+                    discoveredMatches.append(DetectedMatch(
+                        range: match.range,
+                        maskedSubstring: masked,
+                        type: .databaseUrl,
+                        customRuleName: nil,
+                        priority: 11
+                    ))
+                }
             }
         }
         
         // 10. Authorization Headers (Bearer <token>)
         if maskApiKeys, let authHeaderRegex = authHeaderRegex {
-            if let match = authHeaderRegex.firstMatch(in: scanText, options: [], range: fullRange) {
+            let matches = authHeaderRegex.matches(in: scanText, options: [], range: fullRange)
+            for match in matches {
+                guard match.range.location != NSNotFound,
+                      match.range.location + match.range.length <= nsText.length,
+                      match.range.length > 0 else { continue }
                 let matched = nsText.substring(with: match.range)
                 let r1 = match.numberOfRanges > 1 ? match.range(at: 1) : NSRange(location: NSNotFound, length: 0)
                 let r2 = match.numberOfRanges > 2 ? match.range(at: 2) : NSRange(location: NSNotFound, length: 0)
                 let prefix = (r1.location != NSNotFound && r1.location + r1.length <= nsText.length) ? nsText.substring(with: r1) : "Bearer "
                 let tokenPart = (r2.location != NSNotFound && r2.location + r2.length <= nsText.length) ? nsText.substring(with: r2) : matched
                 let masked = maskBearerOrJwtToken(tokenPart, authPrefix: prefix)
-                let maskedFull = maskFullText(text: scanText, matchRange: match.range, maskedSubstring: masked)
-                return SensitiveMatchResult(type: .bearerToken, matchedSubstring: matched, maskedPreview: maskedFull)
+                discoveredMatches.append(DetectedMatch(
+                    range: match.range,
+                    maskedSubstring: masked,
+                    type: .bearerToken,
+                    customRuleName: nil,
+                    priority: 12
+                ))
             }
         }
         
@@ -429,54 +567,222 @@ public final class SensitiveDataService: @unchecked Sendable {
         if maskCreditCards, let creditCardRegex = creditCardRegex {
             let matches = creditCardRegex.matches(in: scanText, options: [], range: fullRange)
             for match in matches {
+                guard match.range.location != NSNotFound,
+                      match.range.location + match.range.length <= nsText.length,
+                      match.range.length > 0 else { continue }
                 let rawCandidate = nsText.substring(with: match.range)
                 let sanitizedNumber = rawCandidate.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()
                 
                 if sanitizedNumber.count >= 13 && sanitizedNumber.count <= 19 && validateLuhnChecksum(sanitizedNumber) {
                     let last4 = String(sanitizedNumber.suffix(4))
                     let masked = "•••• •••• •••• \(last4)"
-                    let maskedFull = maskFullText(text: scanText, matchRange: match.range, maskedSubstring: masked)
-                    return SensitiveMatchResult(type: .creditCard, matchedSubstring: rawCandidate, maskedPreview: maskedFull)
+                    discoveredMatches.append(DetectedMatch(
+                        range: match.range,
+                        maskedSubstring: masked,
+                        type: .creditCard,
+                        customRuleName: nil,
+                        priority: 13
+                    ))
                 }
             }
         }
         
         // 12. JWT Bearer Tokens
         if maskApiKeys, let jwtTokenRegex = jwtTokenRegex {
-            if let match = jwtTokenRegex.firstMatch(in: scanText, options: [], range: fullRange) {
+            let matches = jwtTokenRegex.matches(in: scanText, options: [], range: fullRange)
+            for match in matches {
+                guard match.range.location != NSNotFound,
+                      match.range.location + match.range.length <= nsText.length,
+                      match.range.length > 0 else { continue }
                 let matched = nsText.substring(with: match.range)
                 let masked = maskBearerOrJwtToken(matched, authPrefix: "")
-                let maskedFull = maskFullText(text: scanText, matchRange: match.range, maskedSubstring: masked)
-                return SensitiveMatchResult(type: .bearerToken, matchedSubstring: matched, maskedPreview: maskedFull)
+                discoveredMatches.append(DetectedMatch(
+                    range: match.range,
+                    maskedSubstring: masked,
+                    type: .bearerToken,
+                    customRuleName: nil,
+                    priority: 14
+                ))
             }
         }
         
-        // 13. Vietnam Citizen ID (CCCD - 12 digits)
+        // 13. Email Address
+        if maskPII, let emailRegex = emailRegex {
+            let matches = emailRegex.matches(in: scanText, options: [], range: fullRange)
+            for match in matches {
+                guard match.range.location != NSNotFound,
+                      match.range.location + match.range.length <= nsText.length,
+                      match.range.length > 0 else { continue }
+                let matched = nsText.substring(with: match.range)
+                let masked = maskEmailAddress(matched)
+                discoveredMatches.append(DetectedMatch(
+                    range: match.range,
+                    maskedSubstring: masked,
+                    type: .email,
+                    customRuleName: nil,
+                    priority: 15
+                ))
+            }
+        }
+        
+        // 14. Phone Number
+        if maskPII, let phoneRegex = phoneRegex {
+            let matches = phoneRegex.matches(in: scanText, options: [], range: fullRange)
+            for match in matches {
+                guard match.range.location != NSNotFound,
+                      match.range.location + match.range.length <= nsText.length,
+                      match.range.length > 0 else { continue }
+                let matched = nsText.substring(with: match.range)
+                let digitsOnly = matched.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()
+                if digitsOnly.count >= 9 && digitsOnly.count <= 15 {
+                    let masked = maskPhoneNumber(matched)
+                    discoveredMatches.append(DetectedMatch(
+                        range: match.range,
+                        maskedSubstring: masked,
+                        type: .phoneNumber,
+                        customRuleName: nil,
+                        priority: 16
+                    ))
+                }
+            }
+        }
+        
+        // 15. Vietnam Citizen ID (CCCD - 12 digits)
         if maskPII, let vnCitizenIdRegex = vnCitizenIdRegex {
-            if let match = vnCitizenIdRegex.firstMatch(in: scanText, options: [], range: fullRange) {
+            let matches = vnCitizenIdRegex.matches(in: scanText, options: [], range: fullRange)
+            for match in matches {
+                guard match.range.location != NSNotFound,
+                      match.range.location + match.range.length <= nsText.length,
+                      match.range.length > 0 else { continue }
                 let matched = nsText.substring(with: match.range)
                 let last4 = String(matched.suffix(4))
                 let masked = "•••• •••• \(last4)"
-                let maskedFull = maskFullText(text: scanText, matchRange: match.range, maskedSubstring: masked)
-                return SensitiveMatchResult(type: .nationalId, matchedSubstring: matched, maskedPreview: maskedFull)
+                discoveredMatches.append(DetectedMatch(
+                    range: match.range,
+                    maskedSubstring: masked,
+                    type: .nationalId,
+                    customRuleName: nil,
+                    priority: 17
+                ))
             }
         }
         
-        // 14. US SSN (9 digits formatted)
+        // 16. US SSN (9 digits formatted)
         if maskPII, let usSsnRegex = usSsnRegex {
-            if let match = usSsnRegex.firstMatch(in: scanText, options: [], range: fullRange) {
+            let matches = usSsnRegex.matches(in: scanText, options: [], range: fullRange)
+            for match in matches {
+                guard match.range.location != NSNotFound,
+                      match.range.location + match.range.length <= nsText.length,
+                      match.range.length > 0 else { continue }
                 let matched = nsText.substring(with: match.range)
                 let last4 = String(matched.suffix(4))
                 let masked = "•••-••-\(last4)"
-                let maskedFull = maskFullText(text: scanText, matchRange: match.range, maskedSubstring: masked)
-                return SensitiveMatchResult(type: .nationalId, matchedSubstring: matched, maskedPreview: maskedFull)
+                discoveredMatches.append(DetectedMatch(
+                    range: match.range,
+                    maskedSubstring: masked,
+                    type: .nationalId,
+                    customRuleName: nil,
+                    priority: 18
+                ))
             }
         }
         
-        return nil
+        guard !discoveredMatches.isEmpty else { return nil }
+        
+        // Resolve overlaps: prioritize higher rule priority (lower number), then longer matches
+        let sortedCandidates = discoveredMatches.sorted {
+            if $0.priority != $1.priority {
+                return $0.priority < $1.priority
+            }
+            return $0.range.length > $1.range.length
+        }
+        
+        var nonOverlapping: [DetectedMatch] = []
+        for candidate in sortedCandidates {
+            let cStart = candidate.range.location
+            let cEnd = candidate.range.location + candidate.range.length
+            
+            let overlaps = nonOverlapping.contains { existing in
+                let eStart = existing.range.location
+                let eEnd = existing.range.location + existing.range.length
+                return max(cStart, eStart) < min(cEnd, eEnd)
+            }
+            
+            if !overlaps {
+                nonOverlapping.append(candidate)
+            }
+        }
+        
+        guard !nonOverlapping.isEmpty else { return nil }
+        
+        // Replace all matches from back-to-front so character offsets in NSRange remain valid
+        let mutableString = NSMutableString(string: scanText)
+        let sortedForReplacement = nonOverlapping.sorted { $0.range.location > $1.range.location }
+        
+        for match in sortedForReplacement {
+            guard match.range.location != NSNotFound,
+                  match.range.location + match.range.length <= mutableString.length else {
+                continue
+            }
+            mutableString.replaceCharacters(in: match.range, with: match.maskedSubstring)
+        }
+        
+        let maskedFull = (mutableString as String).trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Determine whether multiple distinct sensitive categories matched
+        let distinctTypes = Set(nonOverlapping.map { $0.type })
+        let primaryMatch = nonOverlapping.sorted {
+            if $0.priority != $1.priority {
+                return $0.priority < $1.priority
+            }
+            return $0.range.location < $1.range.location
+        }.first!
+        
+        let finalType: SensitiveDataType
+        let finalCustomRuleName: String?
+        if distinctTypes.count > 1 {
+            finalType = .mixed
+            finalCustomRuleName = nil
+        } else {
+            finalType = primaryMatch.type
+            finalCustomRuleName = primaryMatch.customRuleName
+        }
+        
+        let primaryMatchedSubstring = nsText.substring(with: primaryMatch.range)
+        
+        return SensitiveMatchResult(
+            type: finalType,
+            matchedSubstring: primaryMatchedSubstring,
+            maskedPreview: maskedFull,
+            customRuleName: finalCustomRuleName
+        )
     }
     
     // MARK: - Masking Helpers
+    
+    private func maskEmailAddress(_ email: String) -> String {
+        guard let atIndex = email.firstIndex(of: "@") else {
+            return applyMask(to: email, strategy: .keepPrefixAndSuffix)
+        }
+        let userPart = String(email[..<atIndex])
+        let domainPart = String(email[atIndex...])
+        
+        if userPart.count <= 2 {
+            return "\(String(userPart.prefix(1)))••\(domainPart)"
+        }
+        let head = String(userPart.prefix(1))
+        let tail = String(userPart.suffix(1))
+        return "\(head)••••\(tail)\(domainPart)"
+    }
+    
+    private func maskPhoneNumber(_ rawPhone: String) -> String {
+        let digitsOnly = rawPhone.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()
+        if digitsOnly.count >= 4 {
+            let last4 = String(digitsOnly.suffix(4))
+            return "•••• •••• \(last4)"
+        }
+        return "••••••••"
+    }
     
     public func applyMask(to text: String, strategy: MaskStrategy) -> String {
         let count = text.count
