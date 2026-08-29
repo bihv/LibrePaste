@@ -94,7 +94,7 @@ public struct ClipCardView: View {
     
     public var body: some View {
         VStack(spacing: 0) {
-            // Header Banner with App Color Theme
+            // Header Banner with App Color Theme (Paste App Style)
             ClipCardHeaderView(
                 clip: clip,
                 index: index,
@@ -115,7 +115,11 @@ public struct ClipCardView: View {
                     } else {
                         switch clip.type {
                         case .image:
-                            ClipThumbnailView(imagePath: clip.imagePath, previewText: clip.preview)
+                            ClipThumbnailView(
+                                imagePath: clip.imagePath,
+                                previewText: clip.preview,
+                                showDimensions: true
+                            )
                         case .link:
                             linkContentView
                         case .text, .richtext:
@@ -133,19 +137,19 @@ public struct ClipCardView: View {
         }
         .frame(width: 220, height: 250)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(cardBackgroundColor)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(
                     isSelected ? Color.accentColor : (isHovered ? Color.primary.opacity(0.18) : Color.primary.opacity(0.08)),
                     lineWidth: isSelected ? 2 : 1
                 )
         )
         .shadow(
-            color: isSelected ? Color.accentColor.opacity(0.2) : Color.black.opacity(isHovered ? 0.12 : 0.04),
+            color: isSelected ? Color.accentColor.opacity(0.22) : Color.black.opacity(isHovered ? 0.12 : 0.04),
             radius: isSelected ? 8 : (isHovered ? 6 : 2),
             y: isSelected ? 3 : 1
         )
@@ -192,13 +196,13 @@ public struct ClipCardView: View {
                 // Checkerboard pattern for transparency
                 CheckerboardPatternView(size: 6)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 
                 // Color Fill Swatch
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(colorInfo.color)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
                             .strokeBorder(colorInfo.subtleBorderColor, lineWidth: 1)
                     )
                 
@@ -423,7 +427,7 @@ public struct ClipCardView: View {
     }
 }
 
-// MARK: - Dedicated Header Subview
+// MARK: - Dedicated Header Subview (Paste App Layout & Aesthetics)
 
 private struct ClipCardHeaderView: View {
     let clip: ClipRecord
@@ -456,115 +460,177 @@ private struct ClipCardHeaderView: View {
     }
     
     var body: some View {
-        HStack(alignment: .center, spacing: 6) {
-            // Shortcut badge (1-9)
-            if index < 9 {
-                Text("\(index + 1)")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundStyle(theme.textColor)
-                    .frame(width: 18, height: 18)
-                    .background(theme.shortcutBg)
-                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .strokeBorder(theme.shortcutBorder, lineWidth: 0.8)
-                    )
-            }
+        ZStack(alignment: .topTrailing) {
+            // Background Header Theme
+            theme.gradient
             
-            // Source App Icon
-            if let icon = AppColorHelper.shared.getAppIcon(bundleId: clip.sourceIcon, appName: clip.sourceName) {
-                Image(nsImage: icon)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 19, height: 19)
-                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                    .shadow(color: Color.black.opacity(0.2), radius: 1, y: 0.5)
-            } else {
-                let initial = (clip.sourceName?.first.map { String($0) } ?? "?").uppercased()
-                Text(initial)
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundStyle(theme.textColor)
-                    .frame(width: 19, height: 19)
-                    .background(Color.white.opacity(0.25))
-                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.3), lineWidth: 0.8)
-                    )
-            }
-            
-            // App Name & Relative Time
-            VStack(alignment: .leading, spacing: 0.5) {
-                Text((clip.sourceName?.isEmpty == false ? clip.sourceName : nil) ?? L10n.tr("Unknown"))
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(theme.textColor)
-                    .shadow(color: Color.black.opacity(0.25), radius: 1, y: 0.5)
-                    .lineLimit(1)
+            // Header Content Layout
+            HStack(alignment: .center, spacing: 0) {
+                // Left side: Type Name & Relative Time (Paste app 2-line layout)
+                VStack(alignment: .leading, spacing: 1.5) {
+                    HStack(spacing: 4) {
+                        // Shortcut badge (1-9)
+                        if index < 9 {
+                            Text("\(index + 1)")
+                                .font(.system(size: 9, weight: .bold, design: .rounded))
+                                .foregroundStyle(theme.textColor)
+                                .frame(width: 16, height: 16)
+                                .background(theme.shortcutBg)
+                                .clipShape(RoundedRectangle(cornerRadius: 3.5, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 3.5, style: .continuous)
+                                        .strokeBorder(theme.shortcutBorder, lineWidth: 0.7)
+                                )
+                        }
+                        
+                        Text(clipDisplayTypeTitle)
+                            .font(.system(size: 13.5, weight: .bold))
+                            .foregroundStyle(theme.textColor)
+                            .shadow(color: Color.black.opacity(0.2), radius: 1, y: 0.5)
+                            .lineLimit(1)
+                    }
+                    
+                    Text(clip.relativeTimeFormatted)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(theme.textSubColor)
+                        .lineLimit(1)
+                }
+                .padding(.leading, 11)
+                .padding(.vertical, 4)
                 
-                Text(clip.relativeTimeFormatted)
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(theme.textSubColor)
-                    .lineLimit(1)
-            }
-            
-            Spacer(minLength: 2)
-            
-            // Eye Toggle Button for Sensitive Data
-            if clip.isSensitive {
-                Button(action: onToggleReveal) {
-                    Image(systemName: isRevealed ? "eye.slash.fill" : "eye.fill")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(isRevealed ? Color(red: 1.0, green: 0.85, blue: 0.2) : Color.white.opacity(isHovered ? 0.9 : 0.6))
-                        .frame(width: 20, height: 20)
-                        .background(isRevealed ? Color.black.opacity(0.35) : Color.black.opacity(0.12))
-                        .clipShape(Circle())
+                Spacer(minLength: 6)
+                
+                // Hover Actions (Pin / Sensitive Eye Toggle)
+                HStack(spacing: 4) {
+                    if clip.isSensitive {
+                        Button(action: onToggleReveal) {
+                            Image(systemName: isRevealed ? "eye.slash.fill" : "eye.fill")
+                                .font(.system(size: 9.5, weight: .bold))
+                                .foregroundStyle(isRevealed ? Color(red: 1.0, green: 0.85, blue: 0.2) : theme.textColor.opacity(isHovered ? 0.95 : 0.65))
+                                .frame(width: 20, height: 20)
+                                .background(isRevealed ? Color.black.opacity(0.38) : Color.black.opacity(0.18))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .help(isRevealed ? L10n.tr("Hide sensitive data") : L10n.tr("Reveal sensitive data"))
+                        .accessibilityLabel(isRevealed ? L10n.tr("Hide sensitive data") : L10n.tr("Reveal sensitive data"))
+                    }
+                    
+                    if clip.pinned || isHovered {
+                        Button(action: onTogglePin) {
+                            if clip.pinned {
+                                Image(systemName: "pin.fill")
+                                    .font(.system(size: 10.5, weight: .bold))
+                                    .foregroundStyle(Color(red: 1.0, green: 0.85, blue: 0.2))
+                                    .shadow(color: Color.orange.opacity(0.6), radius: 2)
+                            } else {
+                                Image(systemName: "pin")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(theme.textColor.opacity(0.85))
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .frame(width: 19, height: 19)
+                        .help(clip.pinned ? L10n.tr("Unpin") : L10n.tr("Pin to Top"))
+                        .accessibilityLabel(clip.pinned ? L10n.tr("Unpin clip") : L10n.tr("Pin clip to top"))
+                    }
                 }
-                .buttonStyle(.plain)
-                .help(isRevealed ? L10n.tr("Hide sensitive data") : L10n.tr("Reveal sensitive data"))
-                .accessibilityLabel(isRevealed ? L10n.tr("Hide sensitive data") : L10n.tr("Reveal sensitive data"))
+                .padding(.trailing, 5)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .padding(.trailing, 52) // Avoid text overlapping the corner icon
             
-            // Type icon badge
-            Image(systemName: isColor ? "paintpalette.fill" : clip.type.systemImage)
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(theme.textColor.opacity(0.9))
-                .padding(.horizontal, 4.5)
-                .padding(.vertical, 2.5)
-                .background(Color.black.opacity(0.18))
-                .clipShape(Capsule())
-            
-            // Pin button
-            Button(action: onTogglePin) {
-                if clip.pinned {
-                    Image(systemName: "pin.fill")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Color(red: 1.0, green: 0.85, blue: 0.2))
-                        .shadow(color: Color.orange.opacity(0.6), radius: 2)
-                } else {
-                    Image(systemName: "pin")
-                        .font(.system(size: 10.5, weight: .regular))
-                        .foregroundStyle(Color.white.opacity(isHovered ? 0.85 : 0.45))
-                }
-            }
-            .buttonStyle(.plain)
-            .help(clip.pinned ? L10n.tr("Unpin") : L10n.tr("Pin to Top"))
-            .accessibilityLabel(clip.pinned ? L10n.tr("Unpin clip") : L10n.tr("Pin clip to top"))
+            // Large Corner App Icon (Occupies the entire top-right corner)
+            appIconCornerView
         }
-        .padding(.horizontal, 9)
-        .frame(height: 38)
+        .frame(height: 50)
         .frame(maxWidth: .infinity)
-        .background(theme.gradient)
         .overlay(
             VStack(spacing: 0) {
                 Rectangle()
-                    .fill(Color.white.opacity(0.22))
+                    .fill(Color.white.opacity(0.2))
                     .frame(height: 0.75)
                 Spacer()
                 Rectangle()
-                    .fill(Color.black.opacity(0.12))
+                    .fill(Color.black.opacity(0.1))
                     .frame(height: 0.75)
             }
         )
+    }
+    
+    private var clipDisplayTypeTitle: String {
+        if isColor {
+            return L10n.tr("Color")
+        }
+        switch clip.type {
+        case .image:
+            return L10n.tr("Image")
+        case .link:
+            return L10n.tr("Link")
+        case .text, .richtext:
+            if isLikelyFile {
+                return L10n.tr("File")
+            }
+            return L10n.tr("Text")
+        }
+    }
+    
+    private var isLikelyFile: Bool {
+        if let source = clip.sourceName?.lowercased(), source.contains("finder") {
+            return true
+        }
+        let content = clip.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        if content.hasPrefix("file://") {
+            return true
+        }
+        if content.hasPrefix("/") && !content.contains("\n") && content.count < 1024 {
+            return FileManager.default.fileExists(atPath: content)
+        }
+        return false
+    }
+    
+    @ViewBuilder
+    private var appIconCornerView: some View {
+        let cornerWidth: CGFloat = 52
+        let cornerHeight: CGFloat = 50
+        
+        if let icon = AppColorHelper.shared.getAppIcon(bundleId: clip.sourceIcon, appName: clip.sourceName) {
+            Image(nsImage: icon)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 64, height: 64)
+                .offset(x: 6.5, y: -6.5) // Offsets the macOS .icns canvas margin so the visible squircle touches top-right
+                .frame(width: cornerWidth, height: cornerHeight, alignment: .topTrailing)
+                .clipped()
+                .clipShape(
+                    UnevenRoundedRectangle(
+                        topLeadingRadius: 9,
+                        bottomLeadingRadius: 13,
+                        bottomTrailingRadius: 0,
+                        topTrailingRadius: 16,
+                        style: .continuous
+                    )
+                )
+                .shadow(color: Color.black.opacity(0.18), radius: 3, x: -1, y: 1.5)
+        } else {
+            let initial = (clip.sourceName?.first.map { String($0) } ?? "?").uppercased()
+            ZStack {
+                UnevenRoundedRectangle(
+                    topLeadingRadius: 9,
+                    bottomLeadingRadius: 13,
+                    bottomTrailingRadius: 0,
+                    topTrailingRadius: 16,
+                    style: .continuous
+                )
+                .fill(Color.white.opacity(0.24))
+                
+                Text(initial)
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundStyle(theme.textColor)
+            }
+            .frame(width: cornerWidth, height: cornerHeight, alignment: .topTrailing)
+            .shadow(color: Color.black.opacity(0.18), radius: 3, x: -1, y: 1.5)
+        }
     }
 }
 

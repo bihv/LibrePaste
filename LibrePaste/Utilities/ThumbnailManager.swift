@@ -13,6 +13,7 @@ public final class ThumbnailManager: @unchecked Sendable {
     public nonisolated static let shared = ThumbnailManager()
     
     private nonisolated(unsafe) let memoryCache = NSCache<NSString, NSImage>()
+    private nonisolated(unsafe) let dimensionCache = NSCache<NSString, NSValue>()
     public let diskCacheDir: URL
     public let targetPixelSize: CGFloat = 480 // Crisp 2x retina representation for ~200pt card preview
     
@@ -22,6 +23,7 @@ public final class ThumbnailManager: @unchecked Sendable {
     private init() {
         memoryCache.countLimit = 300
         memoryCache.totalCostLimit = 100 * 1024 * 1024 // 100 MB max RAM cache
+        dimensionCache.countLimit = 500
         
         let fileManager = FileManager.default
         let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -39,10 +41,20 @@ public final class ThumbnailManager: @unchecked Sendable {
         memoryCache.object(forKey: path as NSString)
     }
     
+    /// Instant 0ms dimension cache lookup
+    public nonisolated func cachedDimensions(for path: String) -> CGSize? {
+        dimensionCache.object(forKey: path as NSString)?.sizeValue
+    }
+    
     /// Explicitly cache a preloaded or captured image into memory cache
     public nonisolated func cacheThumbnail(_ image: NSImage, for path: String) {
         let cost = Int(image.size.width * image.size.height * 4)
         memoryCache.setObject(image, forKey: path as NSString, cost: max(1, cost))
+    }
+    
+    /// Cache dimensions for an image path
+    public nonisolated func cacheDimensions(_ size: CGSize, for path: String) {
+        dimensionCache.setObject(NSValue(size: size), forKey: path as NSString)
     }
     
     // MARK: - In-Flight Deduplication Locking Helpers
@@ -190,6 +202,13 @@ public final class ThumbnailManager: @unchecked Sendable {
             return nil
         }
         
+        // Cache original image dimensions directly during ImageIO parsing to avoid secondary disk I/O
+        if let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
+           let width = properties[kCGImagePropertyPixelWidth] as? CGFloat,
+           let height = properties[kCGImagePropertyPixelHeight] as? CGFloat {
+            cacheDimensions(CGSize(width: width, height: height), for: url.path)
+        }
+        
         let alphaInfo = thumbnailCG.alphaInfo
         let hasAlpha = (alphaInfo == .first || alphaInfo == .last ||
                         alphaInfo == .premultipliedFirst || alphaInfo == .premultipliedLast)
@@ -235,7 +254,42 @@ public final class ThumbnailManager: @unchecked Sendable {
         }
     }
     
-    // MARK: - Decrypted Full Image Access
+    // MARK: - Decrypted Full Image Access & Dimension Metadata
+    
+    /// Returns image dimensions (width, height) synchronously if cached, otherwise nil
+    public nonisolated func imageDimensions(for path: String) -> CGSize? {
+        if let cached = cachedDimensions(for: path) {
+            return cached
+        }
+        return nil
+    }
+    
+    /// Loads pixel dimensions of the image without decoding full bitmap into RAM
+    public nonisolated func loadImageDimensions(for path: String) async -> CGSize? {
+        if let cached = cachedDimensions(for: path) {
+            return cached
+        }
+        
+        return await Task.detached(priority: .utility) { [weak self] () -> CGSize? in
+            guard let self = self else { return nil }
+            guard let rawData = self.loadDecryptedImageData(from: path) else { return nil }
+            
+            let options: [CFString: Any] = [
+                kCGImageSourceShouldCache: false
+            ]
+            guard let imageSource = CGImageSourceCreateWithData(rawData as CFData, options as CFDictionary) else {
+                return nil
+            }
+            guard let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any],
+                  let width = properties[kCGImagePropertyPixelWidth] as? CGFloat,
+                  let height = properties[kCGImagePropertyPixelHeight] as? CGFloat else {
+                return nil
+            }
+            let size = CGSize(width: width, height: height)
+            self.cacheDimensions(size, for: path)
+            return size
+        }.value
+    }
     
     /// Loads the full-size decrypted image from disk (for QuickLook Preview)
     public nonisolated func loadFullImage(from path: String) -> NSImage? {
@@ -315,6 +369,7 @@ public final class ThumbnailManager: @unchecked Sendable {
     
     public nonisolated func deleteThumbnail(for originalPath: String) {
         memoryCache.removeObject(forKey: originalPath as NSString)
+        dimensionCache.removeObject(forKey: originalPath as NSString)
         
         let originalURL = URL(fileURLWithPath: originalPath)
         let baseName = originalURL.deletingPathExtension().lastPathComponent
@@ -330,6 +385,7 @@ public final class ThumbnailManager: @unchecked Sendable {
     
     public nonisolated func clearCache() {
         memoryCache.removeAllObjects()
+        dimensionCache.removeAllObjects()
         let fm = FileManager.default
         if let files = try? fm.contentsOfDirectory(atPath: diskCacheDir.path) {
             for file in files {

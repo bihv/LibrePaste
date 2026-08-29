@@ -11,35 +11,51 @@ import AppKit
 public struct ClipThumbnailView: View {
     public let imagePath: String?
     public let previewText: String
+    public let showDimensions: Bool
     
     @State private var thumbnail: NSImage?
+    @State private var dimensions: CGSize?
     
-    public init(imagePath: String?, previewText: String) {
+    public init(imagePath: String?, previewText: String, showDimensions: Bool = false) {
         self.imagePath = imagePath
         self.previewText = previewText
+        self.showDimensions = showDimensions
         
         // Fast-path: Check RAM cache immediately on initialization to render frame 0 with 0 latency
-        if let path = imagePath, let cached = ThumbnailManager.shared.cachedThumbnail(for: path) {
-            _thumbnail = State(initialValue: cached)
+        if let path = imagePath {
+            if let cached = ThumbnailManager.shared.cachedThumbnail(for: path) {
+                _thumbnail = State(initialValue: cached)
+            }
+            if let cachedDim = ThumbnailManager.shared.cachedDimensions(for: path) {
+                _dimensions = State(initialValue: cachedDim)
+            }
         }
     }
     
     public var body: some View {
-        Group {
+        ZStack(alignment: .bottom) {
+            // Main content area
             if let img = currentImage {
-                Image(nsImage: img)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
-                    )
-            } else if let path = imagePath, !path.isEmpty {
-                // Background loading placeholder (Subtle, no layout jump)
                 ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    // Checkerboard pattern background for transparent PNGs (just like Paste)
+                    CheckerboardPatternView(size: 8)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    
+                    Image(nsImage: img)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
+                )
+            } else if let path = imagePath, !path.isEmpty {
+                // Background loading placeholder
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(Color.primary.opacity(0.03))
                     
                     ProgressView()
@@ -59,25 +75,68 @@ public struct ClipThumbnailView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            
+            // Image Dimensions Pill Badge (Paste app signature style, e.g. "1180 × 1260")
+            if showDimensions, let dim = currentDimensions, dim.width > 0, dim.height > 0, currentImage != nil {
+                Text("\(Int(dim.width)) × \(Int(dim.height))")
+                    .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2.5)
+                    .background(Color.black.opacity(0.58))
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(Color.white.opacity(0.18), lineWidth: 0.5)
+                    )
+                    .shadow(color: Color.black.opacity(0.25), radius: 2, y: 1)
+                    .padding(.bottom, 5)
+                    .transition(.opacity)
+            }
         }
         .task(id: imagePath) {
             guard let path = imagePath, !path.isEmpty else {
                 thumbnail = nil
+                dimensions = nil
                 return
             }
+            
+            // Check memory caches; reset if not in RAM to prevent showing stale image/dimensions
             if let cached = ThumbnailManager.shared.cachedThumbnail(for: path) {
                 self.thumbnail = cached
-                return
+            } else {
+                self.thumbnail = nil
+            }
+            if let cachedDim = ThumbnailManager.shared.cachedDimensions(for: path) {
+                self.dimensions = cachedDim
+            } else {
+                self.dimensions = nil
             }
             
-            // Reset to nil while loading new path to prevent showing stale image
-            self.thumbnail = nil
+            // Async load thumbnail if not in memory
+            if self.thumbnail == nil {
+                if let loaded = await ThumbnailManager.shared.loadThumbnail(for: path) {
+                    if !Task.isCancelled {
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            self.thumbnail = loaded
+                        }
+                    }
+                }
+            }
             
-            // Asynchronously load/downsample on background queue (internally falls back to full image decoding on background task)
-            if let loaded = await ThumbnailManager.shared.loadThumbnail(for: path) {
-                if !Task.isCancelled {
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        self.thumbnail = loaded
+            // Async load dimensions if still not available and showDimensions is requested
+            if self.dimensions == nil && showDimensions {
+                if let cachedDim = ThumbnailManager.shared.cachedDimensions(for: path) {
+                    if !Task.isCancelled {
+                        withAnimation(.easeInOut(duration: 0.12)) {
+                            self.dimensions = cachedDim
+                        }
+                    }
+                } else if let loadedDim = await ThumbnailManager.shared.loadImageDimensions(for: path) {
+                    if !Task.isCancelled {
+                        withAnimation(.easeInOut(duration: 0.12)) {
+                            self.dimensions = loadedDim
+                        }
                     }
                 }
             }
@@ -89,5 +148,12 @@ public struct ClipThumbnailView: View {
             return cached
         }
         return thumbnail
+    }
+    
+    private var currentDimensions: CGSize? {
+        if let path = imagePath, let cached = ThumbnailManager.shared.cachedDimensions(for: path) {
+            return cached
+        }
+        return dimensions
     }
 }
