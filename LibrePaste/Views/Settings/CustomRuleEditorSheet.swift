@@ -54,9 +54,9 @@ public struct CustomRuleEditorSheet: View {
             // 1. Header Bar
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(ruleToEdit == nil ? "Add Custom Sensitive Rule" : "Edit Custom Sensitive Rule")
+                    Text(ruleToEdit == nil ? L10n.tr("Add Custom Sensitive Rule") : L10n.tr("Edit Custom Sensitive Rule"))
                         .font(.system(size: 14, weight: .semibold))
-                    Text("Define regex pattern to detect and mask proprietary tokens or sensitive data.")
+                    Text(L10n.tr("Define regex pattern to detect and mask proprietary tokens or sensitive data."))
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
@@ -75,11 +75,11 @@ public struct CustomRuleEditorSheet: View {
                     
                     // --- Field: Rule Name ---
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Rule Name")
+                        Text(L10n.tr("Rule Name"))
                             .font(.system(size: 11.5, weight: .medium))
                             .foregroundStyle(.secondary)
                         
-                        TextField("e.g. Company Access Token", text: $name)
+                        TextField(L10n.tr("e.g. Company Access Token"), text: $name)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(size: 12.5))
                     }
@@ -87,7 +87,7 @@ public struct CustomRuleEditorSheet: View {
                     // --- Field: Regex Pattern ---
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Text("Regex Pattern")
+                            Text(L10n.tr("Regex Pattern"))
                                 .font(.system(size: 11.5, weight: .medium))
                                 .foregroundStyle(.secondary)
                             Spacer()
@@ -96,7 +96,7 @@ public struct CustomRuleEditorSheet: View {
                                     HStack(spacing: 3) {
                                         Image(systemName: "checkmark.circle.fill")
                                             .font(.system(size: 10))
-                                        Text("Valid")
+                                        Text(L10n.tr("Valid"))
                                     }
                                     .font(.caption2)
                                     .foregroundStyle(.green)
@@ -112,7 +112,7 @@ public struct CustomRuleEditorSheet: View {
                             }
                         }
                         
-                        TextField("e.g. corp_[a-zA-Z0-9]{20,}", text: $pattern)
+                        TextField(L10n.tr("e.g. corp_[a-zA-Z0-9]{20,}"), text: $pattern)
                             .font(.system(size: 12, design: .monospaced))
                             .textFieldStyle(.roundedBorder)
                     }
@@ -120,7 +120,7 @@ public struct CustomRuleEditorSheet: View {
                     // --- Field: Masking Strategy & Options ---
                     HStack(spacing: 12) {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Masking Strategy")
+                            Text(L10n.tr("Masking Strategy"))
                                 .font(.system(size: 11.5, weight: .medium))
                                 .foregroundStyle(.secondary)
                             
@@ -134,16 +134,16 @@ public struct CustomRuleEditorSheet: View {
                         }
                         
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("Options")
+                            Text(L10n.tr("Options"))
                                 .font(.system(size: 11.5, weight: .medium))
                                 .foregroundStyle(.secondary)
                             
                             HStack(spacing: 12) {
-                                Toggle("Case Sensitive", isOn: $isCaseSensitive)
+                                Toggle(L10n.tr("Case Sensitive"), isOn: $isCaseSensitive)
                                     .font(.system(size: 11.5))
                                     .toggleStyle(.checkbox)
                                 
-                                Toggle("Enabled", isOn: $isEnabled)
+                                Toggle(L10n.tr("Enabled"), isOn: $isEnabled)
                                     .font(.system(size: 11.5))
                                     .toggleStyle(.checkbox)
                             }
@@ -153,17 +153,17 @@ public struct CustomRuleEditorSheet: View {
                     
                     // --- Live Test Sandbox ---
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Live Test Sandbox")
+                        Text(L10n.tr("Live Test Sandbox"))
                             .font(.system(size: 11.5, weight: .medium))
                             .foregroundStyle(.secondary)
                         
-                        TextField("Type sample text containing the pattern to test...", text: $testSample)
+                        TextField(L10n.tr("Type sample text containing the pattern to test..."), text: $testSample)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(size: 12))
                         
                         if !testSample.isEmpty {
                             HStack(alignment: .top, spacing: 6) {
-                                Text("Preview:")
+                                Text(L10n.tr("Preview:"))
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                                 
@@ -200,14 +200,14 @@ public struct CustomRuleEditorSheet: View {
             
             // 3. Action Buttons
             HStack {
-                Button("Cancel") {
+                Button(L10n.tr("Cancel")) {
                     dismiss()
                 }
                 .keyboardShortcut(.escape, modifiers: [])
                 
                 Spacer()
                 
-                Button(ruleToEdit == nil ? "Add Rule" : "Save Changes") {
+                Button(ruleToEdit == nil ? L10n.tr("Add Rule") : L10n.tr("Save Changes")) {
                     saveRule()
                 }
                 .buttonStyle(.borderedProminent)

@@ -27,7 +27,7 @@ public struct SearchBarView: View {
                 .font(.system(size: 11.5, weight: .semibold))
                 .foregroundStyle(isFocused ? Color.accentColor : Color.primary.opacity(0.6))
             
-            TextField("Search clipboard...", text: $text)
+            TextField(L10n.tr("Search clipboard..."), text: $text)
                 .textFieldStyle(.plain)
                 .font(.system(size: 12))
                 .foregroundStyle(Color.primary)

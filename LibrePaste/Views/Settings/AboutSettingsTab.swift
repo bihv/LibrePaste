@@ -104,11 +104,11 @@ public struct AboutSettingsTab: View {
                 Text(appName)
                     .font(.system(size: 22, weight: .bold))
                 
-                Text("Version \(appVersion) (\(buildNumber))")
+                Text(L10n.tr("Version %@ (%@)", appVersion, buildNumber))
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                 
-                Text("Native clipboard history manager for macOS.\nCrafted with Swift & SwiftUI.")
+                Text(L10n.tr("Native clipboard history manager for macOS.\nCrafted with Swift & SwiftUI."))
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -129,7 +129,7 @@ public struct AboutSettingsTab: View {
                 } else {
                     Image(systemName: "arrow.triangle.2.circlepath")
                 }
-                Text(updateMessage ?? "Check for Updates…")
+                Text(updateMessage ?? L10n.tr("Check for Updates..."))
             }
             .frame(minWidth: 160)
         }
@@ -143,8 +143,8 @@ public struct AboutSettingsTab: View {
             // GitHub
             linkRow(
                 icon: "chevron.left.forwardslash.chevron.right",
-                title: "Source Code & GitHub",
-                subtitle: "View repository and releases",
+                title: L10n.tr("Source Code & GitHub"),
+                subtitle: L10n.tr("View repository and releases"),
                 url: "https://github.com/bihv/LibrePaste"
             )
             
@@ -154,8 +154,8 @@ public struct AboutSettingsTab: View {
             // Issues
             linkRow(
                 icon: "bubble.left.and.exclamationmark.bubble.right",
-                title: "Report an Issue or Feedback",
-                subtitle: "Submit bug reports or feature suggestions",
+                title: L10n.tr("Report an Issue or Feedback"),
+                subtitle: L10n.tr("Submit bug reports or feature suggestions"),
                 url: "https://github.com/bihv/LibrePaste/issues"
             )
             
@@ -169,13 +169,13 @@ public struct AboutSettingsTab: View {
                     .foregroundStyle(Color.accentColor)
                     .frame(width: 18)
                 
-                Text("System")
+                Text(L10n.tr("System"))
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.primary)
                 
                 Spacer()
                 
-                Text("macOS \(macosVersion) • \(cpuArchitecture)")
+                Text(L10n.tr("macOS %@ • %@", macosVersion, cpuArchitecture))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
@@ -224,11 +224,11 @@ public struct AboutSettingsTab: View {
     
     private var footerSection: some View {
         VStack(spacing: 4) {
-            Text("Crafted with ❤️ for macOS by bihv & Contributors")
+            Text(L10n.tr("Crafted with ❤️ for macOS by bihv & Contributors"))
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
             
-            Text("© \(currentYear) LibrePaste. All rights reserved.")
+            Text(L10n.tr("© %@ LibrePaste. All rights reserved.", currentYear))
                 .font(.system(size: 10))
                 .foregroundStyle(.tertiary)
         }
@@ -238,11 +238,11 @@ public struct AboutSettingsTab: View {
     
     private func checkForUpdates() {
         isCheckingUpdate = true
-        updateMessage = "Checking..."
+        updateMessage = L10n.tr("Checking...")
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
             isCheckingUpdate = false
-            updateMessage = "Latest version!"
+            updateMessage = L10n.tr("Latest version!")
             
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
                 withAnimation {

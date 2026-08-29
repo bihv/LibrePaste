@@ -15,6 +15,7 @@ struct LibrePasteApp: App {
         Settings {
             SettingsView(store: appDelegate.store)
                 .preferredColorScheme(appDelegate.store.appAppearance.colorScheme)
+                .environment(\.locale, appDelegate.store.appLanguage.locale)
         }
     }
 }

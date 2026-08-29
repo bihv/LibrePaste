@@ -138,9 +138,9 @@ public struct QuickLookPreviewView: View {
                 .foregroundStyle(clip.sensitiveType?.themeColor ?? .orange)
             
             VStack(alignment: .leading, spacing: 1) {
-                Text("Sensitive Data Protected: \(clip.customRuleName ?? clip.sensitiveType?.displayName ?? "Secret")")
+                Text(L10n.tr("Sensitive Data Protected: %@", clip.customRuleName ?? clip.sensitiveType?.displayName ?? L10n.tr("Secret")))
                     .font(.system(size: 12, weight: .semibold))
-                Text(isRevealed ? "Content is temporarily unmasked on screen." : "Content is masked to prevent visual exposure. Press Space or click Reveal.")
+                Text(isRevealed ? L10n.tr("Content is temporarily unmasked on screen.") : L10n.tr("Content is masked to prevent visual exposure. Press Space or click Reveal."))
                     .font(.system(size: 10.5))
                     .foregroundStyle(.secondary)
             }
@@ -148,7 +148,7 @@ public struct QuickLookPreviewView: View {
             Spacer()
             
             Button(action: handleToggleReveal) {
-                Label(isRevealed ? "Hide Secret" : "Reveal Secret", systemImage: isRevealed ? "eye.slash" : "eye")
+                Label(isRevealed ? L10n.tr("Hide Secret") : L10n.tr("Reveal Secret"), systemImage: isRevealed ? "eye.slash" : "eye")
                     .font(.system(size: 11.5, weight: .medium))
             }
             .buttonStyle(.bordered)
@@ -177,7 +177,7 @@ public struct QuickLookPreviewView: View {
         let requireAuth = (settings["requireAuthToReveal"] ?? "false") == "true"
         if requireAuth {
             Task { @MainActor in
-                let success = await SecurityManager.shared.authenticate(reason: "Authenticate to view sensitive data in Quick Look")
+                let success = await SecurityManager.shared.authenticate(reason: L10n.tr("Authenticate to view sensitive data in Quick Look"))
                 if success {
                     withAnimation(.easeInOut(duration: 0.15)) {
                         self.isRevealed = true
@@ -232,11 +232,11 @@ public struct QuickLookPreviewView: View {
             // Sensitive Reveal Button
             if clip.isSensitive {
                 Button(action: handleToggleReveal) {
-                    Label(isRevealed ? "Hide" : "Reveal", systemImage: isRevealed ? "eye.slash" : "eye")
+                    Label(isRevealed ? L10n.tr("Hide") : L10n.tr("Reveal"), systemImage: isRevealed ? "eye.slash" : "eye")
                         .font(.system(size: 12))
                 }
                 .buttonStyle(.bordered)
-                .help(isRevealed ? "Hide sensitive text" : "Reveal sensitive text (Space)")
+                .help(isRevealed ? L10n.tr("Hide sensitive text") : L10n.tr("Reveal sensitive text (Space)"))
             }
             
             // Contextual Actions
@@ -247,29 +247,29 @@ public struct QuickLookPreviewView: View {
                         imageActualSize.toggle()
                     }
                 }) {
-                    Label(imageActualSize ? "Fit" : "100%",
+                    Label(imageActualSize ? L10n.tr("Fit") : "100%",
                           systemImage: imageActualSize ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
                         .font(.system(size: 12))
                 }
                 .buttonStyle(.bordered)
-                .help(imageActualSize ? "Fit image to window" : "View image at 100% actual size")
+                .help(imageActualSize ? L10n.tr("Fit image to window") : L10n.tr("View image at 100% actual size"))
                 
                 // Open in Preview.app
                 Button(action: {
                     openInPreviewApp(path: path)
                 }) {
-                    Label("Preview", systemImage: "arrow.up.forward.app")
+                    Label(L10n.tr("Preview"), systemImage: "arrow.up.forward.app")
                         .font(.system(size: 12))
                 }
                 .buttonStyle(.bordered)
-                .help("Open in Preview.app")
+                .help(L10n.tr("Open in Preview.app"))
             } else if isURL, let url = parsedURL {
                 Link(destination: url) {
-                    Label("Open", systemImage: "arrow.up.right.square")
+                    Label(L10n.tr("Open"), systemImage: "arrow.up.right.square")
                         .font(.system(size: 12))
                 }
                 .buttonStyle(.bordered)
-                .help("Open link in browser")
+                .help(L10n.tr("Open link in browser"))
             }
             
             // Edit Button
@@ -278,29 +278,29 @@ public struct QuickLookPreviewView: View {
                     NotificationCenter.default.post(name: .openEditWindow, object: clip)
                     onClose()
                 }) {
-                    Label("Edit", systemImage: "pencil")
+                    Label(L10n.tr("Edit"), systemImage: "pencil")
                         .font(.system(size: 12))
                 }
                 .buttonStyle(.bordered)
-                .help("Edit clip content (E)")
+                .help(L10n.tr("Edit clip content (E)"))
             }
             
             // Copy Button
             Button(action: copyCurrentContent) {
-                Label(isCopied ? "Copied" : "Copy", systemImage: isCopied ? "checkmark" : "doc.on.doc")
+                Label(isCopied ? L10n.tr("Copied") : L10n.tr("Copy"), systemImage: isCopied ? "checkmark" : "doc.on.doc")
                     .font(.system(size: 12))
             }
             .buttonStyle(.bordered)
-            .help("Copy content to clipboard")
+            .help(L10n.tr("Copy content to clipboard"))
             
             // Paste Button
             Button(action: onPaste) {
-                Label("Paste", systemImage: "doc.on.clipboard")
+                Label(L10n.tr("Paste"), systemImage: "doc.on.clipboard")
                     .font(.system(size: 12, weight: .medium))
             }
             .buttonStyle(.borderedProminent)
             .keyboardShortcut(.return, modifiers: [])
-            .help("Paste into active app (Return)")
+            .help(L10n.tr("Paste into active app (Return)"))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -379,19 +379,19 @@ public struct QuickLookPreviewView: View {
                     Text("•")
                         .foregroundStyle(.tertiary)
                 }
-                Text("\(clip.content.count) characters")
+                Text(L10n.tr("%lld characters", Int64(clip.content.count)))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             } else {
                 let charCount = plainTextContent.count
                 let wordCount = plainTextContent.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
                 
-                Text("\(charCount) characters")
+                Text(L10n.tr("%lld characters", Int64(charCount)))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                 Text("•")
                     .foregroundStyle(.tertiary)
-                Text("\(wordCount) words")
+                Text(L10n.tr("%lld words", Int64(wordCount)))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
@@ -405,8 +405,8 @@ public struct QuickLookPreviewView: View {
     
     private var detectedTypeDisplayName: String {
         if isJSON { return "JSON" }
-        if isRichText { return "Rich Text" }
-        if isURL { return "Link" }
+        if isRichText { return L10n.tr("Rich Text") }
+        if isURL { return L10n.tr("Link") }
         return clip.type.displayName
     }
     
@@ -580,7 +580,7 @@ private struct QuickLookLinkContent: View {
                     // Open in Browser
                     if let targetUrl = url {
                         Link(destination: targetUrl) {
-                            Label("Open in Browser", systemImage: "arrow.up.right.square")
+                            Label(L10n.tr("Open in Browser"), systemImage: "arrow.up.right.square")
                                 .font(.system(size: 12.5, weight: .medium))
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
@@ -635,7 +635,7 @@ private struct QuickLookImageContent: View {
                     Image(systemName: "photo")
                         .font(.system(size: 40))
                         .foregroundStyle(.tertiary)
-                    Text("No image data available")
+                    Text(L10n.tr("No image data available"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }

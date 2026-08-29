@@ -174,8 +174,8 @@ public struct SidebarView: View {
             PinboardFormSheet(
                 initialName: "",
                 initialColor: "#6366f1",
-                title: "New Pinboard",
-                submitTitle: "Create",
+                title: L10n.tr("New Pinboard"),
+                submitTitle: L10n.tr("Save"),
                 onSave: { name, color in
                     onCreate(name, color)
                     showingCreateSheet = false
@@ -189,8 +189,8 @@ public struct SidebarView: View {
             PinboardFormSheet(
                 initialName: pb.name,
                 initialColor: pb.color,
-                title: "Edit Pinboard",
-                submitTitle: "Save",
+                title: L10n.tr("Edit Pinboard"),
+                submitTitle: L10n.tr("Save"),
                 onSave: { name, color in
                     onUpdate(pb.id, name, color)
                     editingPinboard = nil
@@ -225,10 +225,10 @@ public struct SidebarView: View {
                     )
             }
             .buttonStyle(.plain)
-            .help(isCollapsed ? "Expand Sidebar" : "Collapse Sidebar")
+            .help(isCollapsed ? L10n.tr("Expand Sidebar") : L10n.tr("Collapse Sidebar"))
             
             if !isCollapsed {
-                Text("Pinboards")
+                Text(L10n.tr("Pinboards"))
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(Color.primary.opacity(0.65))
                     .textCase(.uppercase)
@@ -244,7 +244,7 @@ public struct SidebarView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 5))
                 }
                 .buttonStyle(.plain)
-                .help("New Pinboard")
+                .help(L10n.tr("New Pinboard"))
             }
         }
         .padding(.horizontal, isCollapsed ? 6 : 10)
@@ -256,12 +256,12 @@ public struct SidebarView: View {
         let isAllSelected = selectedId == nil && !isQueueSelected
         return SidebarNavItem(
             icon: "clock",
-            title: "All Clips",
+            title: L10n.tr("All History"),
             badgeCount: nil,
             isSelected: isAllSelected,
             isTargeted: isAllClipsTargeted,
             isCollapsed: isCollapsed,
-            helpText: "All Clips (drop card here to unpin)",
+            helpText: L10n.tr("All Clips (drop card here to unpin)"),
             action: { onSelect(nil) }
         )
         .onDrop(
@@ -280,12 +280,12 @@ public struct SidebarView: View {
         let count = queueCount ?? PasteQueueManager.shared.items.count
         return SidebarNavItem(
             icon: "list.bullet.clipboard",
-            title: "Paste Queue",
+            title: L10n.tr("Paste Queue"),
             badgeCount: count > 0 ? count : nil,
             isSelected: isQueueSelected,
             isTargeted: isQueueTargeted,
             isCollapsed: isCollapsed,
-            helpText: "Paste Queue (drop cards here to enqueue)",
+            helpText: L10n.tr("Paste Queue (drop cards here to enqueue)"),
             action: { onSelectQueue?() }
         )
         .onDrop(
@@ -537,19 +537,19 @@ private struct PinboardItemRowView: View {
             )
         }
         .contextMenu {
-            Button("Edit Pinboard...", action: onEdit)
+            Button(L10n.tr("Edit Pinboard..."), action: onEdit)
             if onMoveUp != nil || onMoveDown != nil {
                 Divider()
                 if let onMoveUp {
-                    Button("Move Up", action: onMoveUp)
+                    Button(L10n.tr("Move Up"), action: onMoveUp)
                 }
                 if let onMoveDown {
-                    Button("Move Down", action: onMoveDown)
+                    Button(L10n.tr("Move Down"), action: onMoveDown)
                 }
             }
             Divider()
             Button(role: .destructive, action: onDelete) {
-                Label("Delete", systemImage: "trash")
+                Label(L10n.tr("Delete"), systemImage: "trash")
             }
         }
     }
@@ -778,10 +778,10 @@ private struct PinboardFormSheet: View {
             Text(title)
                 .font(.headline)
             
-            TextField("Pinboard name", text: $name)
+            TextField(L10n.tr("Pinboard name"), text: $name)
                 .textFieldStyle(.roundedBorder)
             
-            Text("Color")
+            Text(L10n.tr("Color"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             
@@ -802,7 +802,7 @@ private struct PinboardFormSheet: View {
             
             HStack {
                 Spacer()
-                Button("Cancel", action: onCancel)
+                Button(L10n.tr("Cancel"), action: onCancel)
                     .keyboardShortcut(.cancelAction)
                 
                 Button(submitTitle) {

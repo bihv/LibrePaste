@@ -21,27 +21,27 @@ public struct StorageSettingsTab: View {
     
     public var body: some View {
         Form {
-            Section("Limits & Retention") {
-                Picker("Maximum clips kept", selection: $maxItems) {
-                    Text("100 clips").tag("100")
-                    Text("200 clips").tag("200")
-                    Text("500 clips (Default)").tag("500")
-                    Text("1,000 clips").tag("1000")
-                    Text("2,000 clips").tag("2000")
-                    Text("5,000 clips").tag("5000")
+            Section(L10n.tr("Limits & Retention")) {
+                Picker(L10n.tr("Maximum clips kept"), selection: $maxItems) {
+                    Text(L10n.tr("100 clips")).tag("100")
+                    Text(L10n.tr("200 clips")).tag("200")
+                    Text(L10n.tr("500 clips (Default)")).tag("500")
+                    Text(L10n.tr("1,000 clips")).tag("1000")
+                    Text(L10n.tr("2,000 clips")).tag("2000")
+                    Text(L10n.tr("5,000 clips")).tag("5000")
                 }
                 .pickerStyle(.menu)
                 .onChange(of: maxItems) { _, val in
                     store.saveSetting(key: "maxItems", value: val)
                 }
                 
-                Picker("History retention", selection: $historyDays) {
-                    Text("7 days").tag("7")
-                    Text("14 days").tag("14")
-                    Text("30 days (Default)").tag("30")
-                    Text("90 days").tag("90")
-                    Text("1 year").tag("365")
-                    Text("Keep Forever").tag("0")
+                Picker(L10n.tr("History retention"), selection: $historyDays) {
+                    Text(L10n.tr("7 days")).tag("7")
+                    Text(L10n.tr("14 days")).tag("14")
+                    Text(L10n.tr("30 days (Default)")).tag("30")
+                    Text(L10n.tr("90 days")).tag("90")
+                    Text(L10n.tr("1 year")).tag("365")
+                    Text(L10n.tr("Keep Forever")).tag("0")
                 }
                 .pickerStyle(.menu)
                 .onChange(of: historyDays) { _, val in
@@ -49,28 +49,28 @@ public struct StorageSettingsTab: View {
                 }
             }
             
-            Section("Storage Overview") {
+            Section(L10n.tr("Storage Overview")) {
                 if let stats = store.storageStats {
-                    LabeledContent("Total Clips", value: "\(stats.totalClips) (\(stats.pinnedClips) pinned)")
-                    LabeledContent("Clips Breakdown", value: "\(stats.textClips) text, \(stats.linkClips) link, \(stats.imageClips) image")
-                    LabeledContent("Database Size", value: stats.formattedDbSize)
-                    LabeledContent("Images Cache Size", value: stats.formattedImagesSize)
-                    LabeledContent("Total Disk Usage", value: stats.formattedTotalSize)
+                    LabeledContent(L10n.tr("Total Clips"), value: L10n.tr("%lld (%lld pinned)", stats.totalClips, stats.pinnedClips))
+                    LabeledContent(L10n.tr("Clips Breakdown"), value: L10n.tr("%lld text, %lld link, %lld image", stats.textClips, stats.linkClips, stats.imageClips))
+                    LabeledContent(L10n.tr("Database Size"), value: stats.formattedDbSize)
+                    LabeledContent(L10n.tr("Images Cache Size"), value: stats.formattedImagesSize)
+                    LabeledContent(L10n.tr("Total Disk Usage"), value: stats.formattedTotalSize)
                 } else {
                     ProgressView()
                 }
             }
             
-            Section("Maintenance") {
+            Section(L10n.tr("Maintenance")) {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 12) {
-                        Button("Clean Unpinned Clips...") {
+                        Button(L10n.tr("Clean Unpinned Clips Now...")) {
                             showCleanAlert = true
                         }
                         .buttonStyle(.bordered)
                         .disabled(isPerformingMaintenance)
                         
-                        Button("Vacuum Database") {
+                        Button(L10n.tr("Vacuum Database")) {
                             performVacuum()
                         }
                         .buttonStyle(.bordered)
@@ -82,7 +82,7 @@ public struct StorageSettingsTab: View {
                         }
                     }
                     
-                    Text("Cleaning removes expired unpinned clips to free up storage space. Vacuum defragments the SQLite database file.")
+                    Text(L10n.tr("Cleaning removes expired unpinned clips to free up storage space. Vacuum defragments the SQLite database file."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -91,13 +91,13 @@ public struct StorageSettingsTab: View {
         }
         .formStyle(.grouped)
         .padding(.horizontal, 8)
-        .alert("Clean Unpinned Clips?", isPresented: $showCleanAlert) {
-            Button("Cancel", role: .cancel) {}
-            Button("Clean All Unpinned", role: .destructive) {
+        .alert(L10n.tr("Clean Unpinned Clips?"), isPresented: $showCleanAlert) {
+            Button(L10n.tr("Cancel"), role: .cancel) {}
+            Button(L10n.tr("Clean All Unpinned"), role: .destructive) {
                 performClean()
             }
         } message: {
-            Text("This will permanently delete all unpinned clips from your clipboard history. Pinned clips will remain safe.")
+            Text(L10n.tr("This will permanently delete all unpinned clips from your clipboard history. Pinned clips will remain safe."))
         }
         .onAppear {
             loadSettings()
@@ -112,24 +112,24 @@ public struct StorageSettingsTab: View {
     
     private func performClean() {
         isPerformingMaintenance = true
-        Task.detached(priority: .userInitiated) {
-            _ = DatabaseManager.shared.cleanUnpinnedClips()
-            await MainActor.run {
-                store.reloadClips()
-                store.reloadStats()
-                isPerformingMaintenance = false
-            }
+        Task {
+            await Task.detached(priority: .userInitiated) {
+                _ = DatabaseManager.shared.cleanUnpinnedClips()
+            }.value
+            store.reloadClips()
+            store.reloadStats()
+            isPerformingMaintenance = false
         }
     }
     
     private func performVacuum() {
         isPerformingMaintenance = true
-        Task.detached(priority: .userInitiated) {
-            _ = DatabaseManager.shared.vacuumDatabase()
-            await MainActor.run {
-                store.reloadStats()
-                isPerformingMaintenance = false
-            }
+        Task {
+            await Task.detached(priority: .userInitiated) {
+                _ = DatabaseManager.shared.vacuumDatabase()
+            }.value
+            store.reloadStats()
+            isPerformingMaintenance = false
         }
     }
 }

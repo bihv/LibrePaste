@@ -208,7 +208,7 @@ public final class SensitiveDataService: @unchecked Sendable {
     
     public func validateRegexPattern(_ pattern: String) -> (isValid: Bool, errorMessage: String?) {
         guard !pattern.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return (false, "Regex pattern cannot be empty.")
+            return (false, L10n.tr("Regex pattern cannot be empty."))
         }
         do {
             _ = try NSRegularExpression(pattern: pattern, options: [])

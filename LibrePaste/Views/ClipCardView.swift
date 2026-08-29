@@ -161,7 +161,7 @@ public struct ClipCardView: View {
         .contextMenu {
             contextMenuItems
         }
-        .help(clip.isSensitive ? (isRevealed ? "Sensitive data revealed" : "Sensitive data masked • Click eye icon to reveal") : "Double-click or press ↵ to paste")
+        .help(clip.isSensitive ? (isRevealed ? L10n.tr("Hide Sensitive Content") : L10n.tr("Reveal Sensitive Content")) : L10n.tr("Double-click or press ↵ to paste"))
     }
     
     // MARK: - Subviews
@@ -225,7 +225,7 @@ public struct ClipCardView: View {
                 HStack(spacing: 3) {
                     Image(systemName: clip.sensitiveType?.iconName ?? "lock.shield.fill")
                         .font(.system(size: 8.5))
-                    Text(clip.customRuleName ?? clip.sensitiveType?.displayName ?? "Sensitive")
+                    Text(clip.customRuleName ?? clip.sensitiveType?.displayName ?? L10n.tr("Custom Rule"))
                         .font(.system(size: 9, weight: .semibold))
                         .lineLimit(1)
                 }
@@ -235,7 +235,7 @@ public struct ClipCardView: View {
                 .background((clip.sensitiveType?.themeColor ?? .orange).opacity(0.14))
                 .clipShape(RoundedRectangle(cornerRadius: 3.5))
             } else if clip.type == .text || clip.type == .richtext {
-                Text("\(clip.content.count) chars")
+                Text("\(clip.content.count) \(L10n.tr("chars"))")
                     .font(.system(size: 9.5, weight: .regular))
                     .foregroundStyle(.tertiary)
             }
@@ -259,43 +259,43 @@ public struct ClipCardView: View {
     @ViewBuilder
     private var contextMenuItems: some View {
         Button(action: { onAction(.paste) }) {
-            Label("Paste", systemImage: "doc.on.clipboard")
+            Label(L10n.tr("Paste"), systemImage: "doc.on.clipboard")
         }
         
         if clip.type == .link || clip.type == .richtext {
             Button(action: { onAction(.pastePlain) }) {
-                Label("Paste as Plain Text", systemImage: "text.alignleft")
+                Label(L10n.tr("Paste as Plain Text"), systemImage: "text.alignleft")
             }
         }
         
         if clip.isSensitive {
             Button(action: { onAction(.toggleReveal) }) {
-                Label(isRevealed ? "Hide Sensitive Content" : "Reveal Sensitive Content", systemImage: isRevealed ? "eye.slash" : "eye")
+                Label(isRevealed ? L10n.tr("Hide Sensitive Content") : L10n.tr("Reveal Sensitive Content"), systemImage: isRevealed ? "eye.slash" : "eye")
             }
         }
         
         Button(action: { onAction(.preview) }) {
-            Label("Quick Look Preview", systemImage: "eye")
+            Label(L10n.tr("Quick Look Preview"), systemImage: "eye")
         }
         
         if clip.type != .image {
             Button(action: { onAction(.edit) }) {
-                Label("Edit...", systemImage: "pencil")
+                Label(L10n.tr("Edit..."), systemImage: "pencil")
             }
         }
         
         Divider()
         
-        Menu("Pinboard") {
+        Menu(L10n.tr("Pinboard")) {
             if clip.pinboardId != nil {
                 Button(action: { onAction(.addToPinboard(nil)) }) {
-                    Label("Remove from Pinboard", systemImage: "xmark")
+                    Label(L10n.tr("Remove from Pinboard"), systemImage: "xmark")
                 }
                 Divider()
             }
             
             if pinboards.isEmpty {
-                Text("No Pinboards Available")
+                Text(L10n.tr("No Pinboards Available"))
             } else {
                 ForEach(pinboards) { pb in
                     Button(action: { onAction(.addToPinboard(pb.id)) }) {
@@ -311,7 +311,7 @@ public struct ClipCardView: View {
         }
         
         Button(action: { onAction(.togglePin) }) {
-            Label(clip.pinned ? "Unpin" : "Pin to Top", systemImage: clip.pinned ? "pin.slash" : "pin")
+            Label(clip.pinned ? L10n.tr("Unpin") : L10n.tr("Pin to Top"), systemImage: clip.pinned ? "pin.slash" : "pin")
         }
         
         Divider()
@@ -319,18 +319,18 @@ public struct ClipCardView: View {
         let isInQueue = PasteQueueManager.shared.contains(clipId: clip.id)
         if isInQueue {
             Button(action: { onAction(.removeFromQueue) }) {
-                Label("Remove from Paste Queue", systemImage: "minus.rectangle")
+                Label(L10n.tr("Remove from Paste Queue"), systemImage: "minus.rectangle")
             }
         } else {
             Button(action: { onAction(.enqueue) }) {
-                Label("Add to Paste Queue", systemImage: "list.bullet.clipboard")
+                Label(L10n.tr("Add to Paste Queue"), systemImage: "list.bullet.clipboard")
             }
         }
         
         Divider()
         
         Button(role: .destructive, action: { onAction(.delete) }) {
-            Label("Delete", systemImage: "trash")
+            Label(L10n.tr("Delete"), systemImage: "trash")
         }
     }
 }
@@ -386,7 +386,7 @@ private struct ClipCardHeaderView: View {
             
             // App Name & Relative Time
             VStack(alignment: .leading, spacing: 0.5) {
-                Text((clip.sourceName?.isEmpty == false ? clip.sourceName : nil) ?? "Unknown")
+                Text((clip.sourceName?.isEmpty == false ? clip.sourceName : nil) ?? L10n.tr("Unknown"))
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(theme.textColor)
                     .shadow(color: Color.black.opacity(0.25), radius: 1, y: 0.5)
@@ -411,8 +411,8 @@ private struct ClipCardHeaderView: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .help(isRevealed ? "Hide sensitive data" : "Reveal sensitive data")
-                .accessibilityLabel(isRevealed ? "Hide sensitive data" : "Reveal sensitive data")
+                .help(isRevealed ? L10n.tr("Hide sensitive data") : L10n.tr("Reveal sensitive data"))
+                .accessibilityLabel(isRevealed ? L10n.tr("Hide sensitive data") : L10n.tr("Reveal sensitive data"))
             }
             
             // Type icon badge
@@ -438,8 +438,8 @@ private struct ClipCardHeaderView: View {
                 }
             }
             .buttonStyle(.plain)
-            .help(clip.pinned ? "Unpin" : "Pin to Top")
-            .accessibilityLabel(clip.pinned ? "Unpin clip" : "Pin clip to top")
+            .help(clip.pinned ? L10n.tr("Unpin") : L10n.tr("Pin to Top"))
+            .accessibilityLabel(clip.pinned ? L10n.tr("Unpin clip") : L10n.tr("Pin clip to top"))
         }
         .padding(.horizontal, 9)
         .frame(height: 38)

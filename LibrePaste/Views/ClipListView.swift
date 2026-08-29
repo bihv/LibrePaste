@@ -194,11 +194,11 @@ public struct ClipListView: View {
                 .font(.system(size: 38, weight: .light))
                 .foregroundStyle(.tertiary)
             
-            Text("No Clips Found")
+            Text(L10n.tr("No Clips Found"))
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.secondary)
             
-            Text("Copy anything (text, links, images) to see it here.")
+            Text(L10n.tr("Copy something to see it here!"))
                 .font(.system(size: 12, weight: .regular))
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)

@@ -9,7 +9,7 @@ import SwiftUI
 
 public struct SettingsView: View {
     @Bindable public var store: ClipboardStore
-    public var state: SettingsState = SettingsState.shared
+    @Bindable public var state: SettingsState = SettingsState.shared
     
     public init(store: ClipboardStore) {
         self.store = store
@@ -17,17 +17,30 @@ public struct SettingsView: View {
     
     public var body: some View {
         ZStack {
-            Group {
-                switch state.activeTab {
-                case .general:
-                    GeneralSettingsTab(store: store)
-                case .storage:
-                    StorageSettingsTab(store: store)
-                case .privacy:
-                    PrivacySettingsTab(store: store)
-                case .about:
-                    AboutSettingsTab(store: store)
-                }
+            TabView(selection: $state.activeTab) {
+                GeneralSettingsTab(store: store)
+                    .tabItem {
+                        Label(SettingsTab.general.title, systemImage: SettingsTab.general.icon)
+                    }
+                    .tag(SettingsTab.general)
+                
+                StorageSettingsTab(store: store)
+                    .tabItem {
+                        Label(SettingsTab.storage.title, systemImage: SettingsTab.storage.icon)
+                    }
+                    .tag(SettingsTab.storage)
+                
+                PrivacySettingsTab(store: store)
+                    .tabItem {
+                        Label(SettingsTab.privacy.title, systemImage: SettingsTab.privacy.icon)
+                    }
+                    .tag(SettingsTab.privacy)
+                
+                AboutSettingsTab(store: store)
+                    .tabItem {
+                        Label(SettingsTab.about.title, systemImage: SettingsTab.about.icon)
+                    }
+                    .tag(SettingsTab.about)
             }
             
             if store.isLocked {
@@ -38,7 +51,16 @@ public struct SettingsView: View {
                 .zIndex(999)
             }
         }
-        .frame(width: 520, height: 490)
+        .frame(width: 540, height: 500)
         .preferredColorScheme(store.appAppearance.colorScheme)
+        .environment(\.locale, store.appLanguage.locale)
+        .id(store.appLanguage)
+        .onAppear {
+            AppDelegate.shared?.setSettingsWindowOpen(true)
+        }
+        .onDisappear {
+            AppDelegate.shared?.setSettingsWindowOpen(false)
+        }
     }
 }
+

@@ -59,7 +59,7 @@ public struct PasteQueueHUDView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
                 
-                Text("Paste Queue")
+                Text(L10n.tr("Paste Queue"))
                     .font(.system(size: 12, weight: .bold))
             }
             
@@ -78,11 +78,11 @@ public struct PasteQueueHUDView: View {
                     .clipShape(Capsule())
             }
             .buttonStyle(.plain)
-            .help("Click to toggle FIFO (First In First Out) or LIFO (Last In First Out)")
+            .help(L10n.tr("Click to toggle FIFO (First In First Out) or LIFO (Last In First Out)"))
             
             // Progress Indicator Badge
             if !manager.items.isEmpty {
-                Text("\(currentDisplayIndex) of \(manager.items.count)")
+                Text(L10n.tr("%lld of %lld", Int64(currentDisplayIndex), Int64(manager.items.count)))
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 6)
@@ -115,7 +115,7 @@ public struct PasteQueueHUDView: View {
                 .clipShape(Capsule())
             }
             .buttonStyle(.plain)
-            .help(manager.isCollectModeActive ? "Collect Mode ON: All copied items are enqueued" : "Click to enable Collect Mode (auto-enqueue Cmd+C)")
+            .help(manager.isCollectModeActive ? L10n.tr("Collect Mode ON: All copied items are enqueued") : L10n.tr("Click to enable Collect Mode (auto-enqueue Cmd+C)"))
             
             // Close HUD Button
             Button(action: {
@@ -129,7 +129,7 @@ public struct PasteQueueHUDView: View {
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
-            .help("Close Queue Overlay")
+            .help(L10n.tr("Close Queue Overlay"))
         }
     }
     
@@ -139,11 +139,11 @@ public struct PasteQueueHUDView: View {
                 .font(.system(size: 24, weight: .light))
                 .foregroundStyle(.secondary)
             
-            Text("Queue is Empty")
+            Text(L10n.tr("Queue is Empty"))
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.primary)
             
-            Text("Turn on REC or right-click clips in LibrePaste to add.")
+            Text(L10n.tr("Turn on REC or right-click clips in LibrePaste to add."))
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -158,33 +158,38 @@ public struct PasteQueueHUDView: View {
         Group {
             if let nextItem = manager.peekNext() {
                 let clip = nextItem.clip
-                HStack(spacing: 10) {
-                    // Type Icon
-                    Image(systemName: clip.type.systemImage)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(clip.type.themeColor)
-                        .frame(width: 28, height: 28)
-                        .background(clip.type.themeColor.opacity(0.15))
-                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                    
-                    // Text / Content Preview
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(cleanPreview(clip.preview))
-                            .font(.system(size: 12, weight: .medium))
-                            .lineLimit(2)
-                            .foregroundStyle(.primary)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Image(systemName: clip.type.systemImage)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(clip.type.themeColor)
                         
                         if let source = clip.sourceName, !source.isEmpty {
                             Text(source)
-                                .font(.system(size: 10))
-                                .foregroundStyle(.tertiary)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text(clip.type.displayName)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(.secondary)
                         }
+                        
+                        Spacer()
+                        
+                        Text(clip.relativeTimeFormatted)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.tertiary)
                     }
                     
-                    Spacer(minLength: 0)
+                    // Preview content
+                    Text(cleanPreview(clip.preview))
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(.primary)
+                        .lineLimit(3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(10)
-                .background(Color.primary.opacity(0.04))
+                .background(Color(nsColor: .controlBackgroundColor))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -197,7 +202,7 @@ public struct PasteQueueHUDView: View {
     private var upcomingItemsBar: some View {
         let upcoming = upcomingClips
         return HStack(spacing: 6) {
-            Text("Next:")
+            Text(L10n.tr("Next:"))
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(.tertiary)
             
@@ -237,7 +242,7 @@ public struct PasteQueueHUDView: View {
                 HStack(spacing: 5) {
                     Image(systemName: "doc.on.clipboard")
                         .font(.system(size: 11, weight: .semibold))
-                    Text("Paste Next")
+                    Text(L10n.tr("Paste Next"))
                         .font(.system(size: 12, weight: .semibold))
                     
                     Text("⌥⌘V")
@@ -265,7 +270,7 @@ public struct PasteQueueHUDView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "forward.fill")
                         .font(.system(size: 9))
-                    Text("Skip")
+                    Text(L10n.tr("Skip"))
                         .font(.system(size: 11, weight: .medium))
                 }
                 .padding(.horizontal, 10)
@@ -275,7 +280,7 @@ public struct PasteQueueHUDView: View {
             }
             .buttonStyle(.plain)
             .disabled(manager.items.isEmpty)
-            .help("Skip current item without pasting")
+            .help(L10n.tr("Skip current item without pasting"))
             
             // Clear Button
             Button(action: {
@@ -292,7 +297,7 @@ public struct PasteQueueHUDView: View {
             }
             .buttonStyle(.plain)
             .disabled(manager.items.isEmpty)
-            .help("Clear entire queue")
+            .help(L10n.tr("Clear entire queue"))
         }
     }
     

@@ -176,10 +176,10 @@ public enum ClipType: String, Codable, CaseIterable, Identifiable {
     
     public var displayName: String {
         switch self {
-        case .text: return "Text"
-        case .link: return "Link"
-        case .image: return "Image"
-        case .richtext: return "Rich Text"
+        case .text: return L10n.tr("Text")
+        case .link: return L10n.tr("Link")
+        case .image: return L10n.tr("Image")
+        case .richtext: return L10n.tr("Rich Text")
         }
     }
     
@@ -212,10 +212,10 @@ public enum FilterType: String, CaseIterable, Identifiable {
     
     public var displayName: String {
         switch self {
-        case .all: return "All"
-        case .text: return "Text"
-        case .link: return "Links"
-        case .image: return "Images"
+        case .all: return L10n.tr("All")
+        case .text: return L10n.tr("Text")
+        case .link: return L10n.tr("Links")
+        case .image: return L10n.tr("Images")
         }
     }
     
@@ -284,14 +284,8 @@ nonisolated public struct ClipRecord: Identifiable, Codable, Equatable, Hashable
         Date(timeIntervalSince1970: createdAt / 1000.0)
     }
     
-    private static let relativeDateFormatter: RelativeDateTimeFormatter = {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter
-    }()
-    
     public var relativeTimeFormatted: String {
-        ClipRecord.relativeDateFormatter.localizedString(for: createdDate, relativeTo: Date())
+        createdDate.formatted(.relative(presentation: .numeric, unitsStyle: .abbreviated).locale(L10n.currentLocale))
     }
 }
 

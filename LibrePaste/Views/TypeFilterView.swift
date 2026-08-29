@@ -57,7 +57,7 @@ public struct TypeFilterView: View {
                     )
                 }
                 .buttonStyle(.plain)
-                .help("Filter by \(type.displayName)")
+                .help(L10n.tr("Filter by %@", type.displayName))
             }
         }
         .padding(2.5)

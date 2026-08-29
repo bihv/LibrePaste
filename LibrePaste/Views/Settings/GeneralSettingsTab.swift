@@ -12,6 +12,7 @@ import Combine
 public struct GeneralSettingsTab: View {
     @Bindable public var store: ClipboardStore
     
+    @State private var appLanguage: AppLanguage = .system
     @State private var appAppearance: AppAppearance = .system
     @State private var launchAtLogin: Bool = false
     @State private var showInDock: Bool = true
@@ -38,8 +39,18 @@ public struct GeneralSettingsTab: View {
     
     public var body: some View {
         Form {
-            Section("Interface & Appearance") {
-                Picker("Appearance", selection: $appAppearance) {
+            Section(L10n.tr("Interface & Appearance")) {
+                Picker(L10n.tr("Language"), selection: $appLanguage) {
+                    ForEach(AppLanguage.allCases) { lang in
+                        Text("\(lang.flag) \(lang.displayName)").tag(lang)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: appLanguage) { _, val in
+                    store.setAppLanguage(val)
+                }
+                
+                Picker(L10n.tr("Appearance"), selection: $appAppearance) {
                     ForEach(AppAppearance.allCases) { mode in
                         Label(mode.displayName, systemImage: mode.systemImage).tag(mode)
                     }
@@ -51,7 +62,7 @@ public struct GeneralSettingsTab: View {
                     }
                 }
                 
-                Picker("Window Presentation", selection: $windowPresentationMode) {
+                Picker(L10n.tr("Window Presentation"), selection: $windowPresentationMode) {
                     ForEach(WindowPresentationMode.allCases) { mode in
                         Label(mode.displayName, systemImage: mode.systemImage).tag(mode)
                     }
@@ -61,7 +72,7 @@ public struct GeneralSettingsTab: View {
                     store.setWindowPresentationMode(val)
                 }
                 
-                Picker("Default Clip Layout", selection: $clipLayoutStyle) {
+                Picker(L10n.tr("Default Clip Layout"), selection: $clipLayoutStyle) {
                     ForEach(ClipLayoutStyle.allCases) { style in
                         Label(style.displayName, systemImage: style.systemImage).tag(style)
                     }
@@ -71,21 +82,21 @@ public struct GeneralSettingsTab: View {
                     store.setClipLayoutStyle(val)
                 }
                 
-                Toggle("Show App Icons in Compact List", isOn: $compactShowAppIcons)
+                Toggle(L10n.tr("Show App Icons in Compact List"), isOn: $compactShowAppIcons)
                     .onChange(of: compactShowAppIcons) { _, val in
                         store.compactShowAppIcons = val
                         store.saveSetting(key: "compactShowAppIcons", value: val ? "true" : "false")
                     }
                 
-                Toggle("Show Number Shortcut Badges (1-9)", isOn: $compactShowShortcuts)
+                Toggle(L10n.tr("Show Number Shortcut Badges (1-9)"), isOn: $compactShowShortcuts)
                     .onChange(of: compactShowShortcuts) { _, val in
                         store.compactShowShortcuts = val
                         store.saveSetting(key: "compactShowShortcuts", value: val ? "true" : "false")
                     }
                 
-                Picker("Preview Lines in Compact List", selection: $compactPreviewLines) {
-                    Text("1 Line (Ultra Dense)").tag(1)
-                    Text("2 Lines (Standard)").tag(2)
+                Picker(L10n.tr("Preview Lines in Compact List"), selection: $compactPreviewLines) {
+                    Text(L10n.tr("1 Line (Ultra Dense)")).tag(1)
+                    Text(L10n.tr("2 Lines (Standard)")).tag(2)
                 }
                 .pickerStyle(.segmented)
                 .onChange(of: compactPreviewLines) { _, val in
@@ -94,13 +105,13 @@ public struct GeneralSettingsTab: View {
                 }
             }
             
-            Section("Startup & Shortcuts") {
-                Toggle("Launch at Login", isOn: $launchAtLogin)
+            Section(L10n.tr("Startup & Shortcuts")) {
+                Toggle(L10n.tr("Launch at Login"), isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, newValue in
                         updateLaunchAtLogin(newValue)
                     }
                 
-                Toggle("Show Icon in Dock", isOn: $showInDock)
+                Toggle(L10n.tr("Show Icon in Dock"), isOn: $showInDock)
                     .onChange(of: showInDock) { _, newValue in
                         store.saveSetting(key: "showInDock", value: newValue ? "true" : "false")
                         AppDelegate.shared?.updateDockVisibility(show: newValue)
@@ -108,8 +119,8 @@ public struct GeneralSettingsTab: View {
                 
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Global Hotkey")
-                        Text("Shortcut to open LibrePaste from anywhere")
+                        Text(L10n.tr("Global Hotkey"))
+                        Text(L10n.tr("Shortcut to open LibrePaste from anywhere"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -121,22 +132,22 @@ public struct GeneralSettingsTab: View {
                 }
             }
             
-            Section("Paste Behavior") {
-                Picker("Paste Mode", selection: $pasteTarget) {
-                    Text("Direct Paste into Active App").tag("direct")
-                    Text("Copy to Clipboard Only").tag("clipboard")
+            Section(L10n.tr("Paste Behavior")) {
+                Picker(L10n.tr("Paste Mode"), selection: $pasteTarget) {
+                    Text(L10n.tr("Direct Paste into Active App")).tag("direct")
+                    Text(L10n.tr("Copy to Clipboard Only")).tag("clipboard")
                 }
                 .pickerStyle(.menu)
                 .onChange(of: pasteTarget) { _, val in
                     store.saveSetting(key: "pasteTarget", value: val)
                 }
                 
-                Toggle("Hide LibrePaste window after pasting", isOn: $hideAfterPaste)
+                Toggle(L10n.tr("Hide LibrePaste window after pasting"), isOn: $hideAfterPaste)
                     .onChange(of: hideAfterPaste) { _, val in
                         store.saveSetting(key: "hideAfterPaste", value: val ? "true" : "false")
                     }
                 
-                Toggle("Play sound when pasting", isOn: $playSoundOnPaste)
+                Toggle(L10n.tr("Play sound when pasting"), isOn: $playSoundOnPaste)
                     .onChange(of: playSoundOnPaste) { _, val in
                         store.saveSetting(key: "playSoundOnPaste", value: val ? "true" : "false")
                         PasteSimulator.shared.invalidateSoundCache()
@@ -144,14 +155,14 @@ public struct GeneralSettingsTab: View {
                 
                 if playSoundOnPaste {
                     HStack {
-                        Picker("Paste Sound", selection: $pasteSoundName) {
-                            Text("Tink (Subtle Tap)").tag("Tink")
-                            Text("Pop (Soft Bubble)").tag("Pop")
-                            Text("Bottle (Cork Pop)").tag("Bottle")
-                            Text("Glass (Crisp Chime)").tag("Glass")
-                            Text("Blow (Air Puff)").tag("Blow")
-                            Text("Ping (Bell)").tag("Ping")
-                            Text("Purr (Soft)").tag("Purr")
+                        Picker(L10n.tr("Paste Sound"), selection: $pasteSoundName) {
+                            Text(L10n.tr("Tink (Subtle Tap)")).tag("Tink")
+                            Text(L10n.tr("Pop (Soft Bubble)")).tag("Pop")
+                            Text(L10n.tr("Bottle (Cork Pop)")).tag("Bottle")
+                            Text(L10n.tr("Glass (Crisp Chime)")).tag("Glass")
+                            Text(L10n.tr("Blow (Air Puff)")).tag("Blow")
+                            Text(L10n.tr("Ping (Bell)")).tag("Ping")
+                            Text(L10n.tr("Purr (Soft)")).tag("Purr")
                         }
                         .pickerStyle(.menu)
                         .onChange(of: pasteSoundName) { _, val in
@@ -177,16 +188,16 @@ public struct GeneralSettingsTab: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 6))
                         }
                         .buttonStyle(.plain)
-                        .help("Preview selected sound")
+                        .help(L10n.tr("Preview selected sound"))
                     }
                 }
             }
             
-            Section("Paste Queue / Sequential Paste") {
+            Section(L10n.tr("Paste Queue / Sequential Paste")) {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Paste Next Shortcut")
-                        Text("Paste the next queued item into the active app")
+                        Text(L10n.tr("Paste Next Shortcut"))
+                        Text(L10n.tr("Paste the next queued item into the active app"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -202,8 +213,8 @@ public struct GeneralSettingsTab: View {
                 
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Toggle Queue HUD")
-                        Text("Show or hide the floating mini queue overlay")
+                        Text(L10n.tr("Toggle Queue HUD"))
+                        Text(L10n.tr("Show or hide the floating mini queue overlay"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -217,7 +228,7 @@ public struct GeneralSettingsTab: View {
                     }
                 }
                 
-                Picker("Queue Order", selection: $pasteQueueOrder) {
+                Picker(L10n.tr("Queue Order"), selection: $pasteQueueOrder) {
                     ForEach(PasteQueueOrder.allCases) { orderOption in
                         Text(orderOption.displayName).tag(orderOption.rawValue)
                     }
@@ -228,21 +239,21 @@ public struct GeneralSettingsTab: View {
                     PasteQueueManager.shared.order = (val == "lifo") ? .lifo : .fifo
                 }
                 
-                Toggle("Remove item after paste", isOn: $pasteQueueRemoveAfterPaste)
+                Toggle(L10n.tr("Remove item after paste"), isOn: $pasteQueueRemoveAfterPaste)
                     .onChange(of: pasteQueueRemoveAfterPaste) { _, val in
                         let behaviorStr = val ? "removeAfterPaste" : "cycle"
                         store.saveSetting(key: "pasteQueueBehavior", value: behaviorStr)
                         PasteQueueManager.shared.behavior = val ? .removeAfterPaste : .cycle
                     }
                 
-                Toggle("Auto-hide HUD when queue is empty", isOn: $pasteQueueAutoHide)
+                Toggle(L10n.tr("Auto-hide HUD when queue is empty"), isOn: $pasteQueueAutoHide)
                     .onChange(of: pasteQueueAutoHide) { _, val in
                         store.saveSetting(key: "pasteQueueAutoHide", value: val ? "true" : "false")
                         PasteQueueManager.shared.autoHideWhenEmpty = val
                     }
             }
             
-            Section("Accessibility Permissions") {
+            Section(L10n.tr("Accessibility Permissions")) {
                 if isAccessibilityEnabled {
                     accessibilityGrantedView
                 } else {
@@ -280,10 +291,10 @@ public struct GeneralSettingsTab: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 8) {
-                        Text("Accessibility Permission Granted")
+                        Text(L10n.tr("Accessibility Permission Granted"))
                             .font(.system(size: 13, weight: .semibold))
                         
-                        Text("ACTIVE")
+                        Text(L10n.tr("ACTIVE"))
                             .font(.system(size: 9, weight: .bold))
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
@@ -292,7 +303,7 @@ public struct GeneralSettingsTab: View {
                             .clipShape(Capsule())
                     }
                     
-                    Text("LibrePaste has full access to simulate ⌘V and paste directly into active apps.")
+                    Text(L10n.tr("LibrePaste has full access to simulate ⌘V and paste directly into active apps."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -307,15 +318,15 @@ public struct GeneralSettingsTab: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
                     .font(.system(size: 18))
-                Text("Accessibility Permission Needed")
+                Text(L10n.tr("Accessibility Permission Needed"))
                     .font(.system(size: 13, weight: .semibold))
             }
             
-            Text("LibrePaste requires Accessibility permission to automatically simulate ⌘V and paste directly into other applications.")
+            Text(L10n.tr("LibrePaste requires Accessibility permission to automatically simulate ⌘V and paste directly into other applications."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             
-            Button("Grant Accessibility Access") {
+            Button(L10n.tr("Grant Accessibility Access")) {
                 PasteSimulator.requestAccessibilityPermissions()
                 checkAccessibilityStatus()
             }
@@ -323,7 +334,7 @@ public struct GeneralSettingsTab: View {
             .controlSize(.small)
             .padding(.top, 2)
             
-            Text("After enabling LibrePaste in System Settings, quit and relaunch the app.")
+            Text(L10n.tr("After enabling LibrePaste in System Settings, quit and relaunch the app."))
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
@@ -333,6 +344,7 @@ public struct GeneralSettingsTab: View {
     // MARK: - Helpers
     
     private func loadSettings() {
+        appLanguage = store.appLanguage
         appAppearance = store.appAppearance
         windowPresentationMode = store.windowPresentationMode
         clipLayoutStyle = store.clipLayoutStyle

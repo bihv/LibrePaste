@@ -20,11 +20,11 @@ public enum MaskStrategy: String, Codable, CaseIterable, Identifiable, Sendable 
     public var displayName: String {
         switch self {
         case .keepPrefixAndSuffix:
-            return "Keep Prefix & Last 4"
+            return L10n.tr("Keep Prefix & Last 4")
         case .keepSuffixOnly:
-            return "Keep Last 4 Only"
+            return L10n.tr("Keep Last 4 Only")
         case .maskAll:
-            return "Mask All (••••)"
+            return L10n.tr("Mask All (••••)")
         }
     }
     
@@ -83,14 +83,14 @@ public enum SensitiveDataType: String, Codable, CaseIterable, Identifiable, Send
     
     public var displayName: String {
         switch self {
-        case .apiKey: return "API Key"
-        case .privateKey: return "Private Key"
-        case .creditCard: return "Payment Card"
-        case .databaseUrl: return "Database URL"
-        case .bearerToken: return "Auth Token"
-        case .nationalId: return "ID / PII"
-        case .password: return "Password"
-        case .custom: return "Custom Rule"
+        case .apiKey: return L10n.tr("API Key")
+        case .privateKey: return L10n.tr("Private Key")
+        case .creditCard: return L10n.tr("Payment Card")
+        case .databaseUrl: return L10n.tr("Database URL")
+        case .bearerToken: return L10n.tr("Auth Token")
+        case .nationalId: return L10n.tr("ID / PII")
+        case .password: return L10n.tr("Password")
+        case .custom: return L10n.tr("Custom Rule")
         }
     }
     

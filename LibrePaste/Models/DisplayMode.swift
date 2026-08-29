@@ -19,26 +19,26 @@ public enum WindowPresentationMode: String, Codable, CaseIterable, Identifiable,
     public var displayName: String {
         switch self {
         case .bottomShelf:
-            return "Bottom Shelf"
+            return L10n.tr("Bottom Shelf")
         case .menuBarPopover:
-            return "Menu Bar Popover"
+            return L10n.tr("Menu Bar Popover")
         case .centerWindow:
-            return "Center Palette"
+            return L10n.tr("Center Palette")
         case .atCursor:
-            return "At Mouse Cursor"
+            return L10n.tr("At Mouse Cursor")
         }
     }
     
     public var description: String {
         switch self {
         case .bottomShelf:
-            return "Wide floating bar docked at the bottom of the screen"
+            return L10n.tr("Wide floating bar docked at the bottom of the screen")
         case .menuBarPopover:
-            return "Compact window anchored directly below the menu bar icon"
+            return L10n.tr("Compact window anchored directly below the menu bar icon")
         case .centerWindow:
-            return "Spotlight-style floating palette in the center of the screen"
+            return L10n.tr("Spotlight-style floating palette in the center of the screen")
         case .atCursor:
-            return "Floating window anchored near your mouse cursor for instant access"
+            return L10n.tr("Floating window anchored near your mouse cursor for instant access")
         }
     }
     
@@ -103,18 +103,18 @@ public enum ClipLayoutStyle: String, Codable, CaseIterable, Identifiable, Sendab
     public var displayName: String {
         switch self {
         case .cards:
-            return "Horizontal Cards"
+            return L10n.tr("Horizontal Cards")
         case .compactList:
-            return "Vertical Compact List"
+            return L10n.tr("Vertical Compact List")
         }
     }
     
     public var description: String {
         switch self {
         case .cards:
-            return "Visual card carousel with rich preview banners"
+            return L10n.tr("Visual card carousel with rich preview banners")
         case .compactList:
-            return "Dense single-column list optimized for fast keyboard navigation"
+            return L10n.tr("Dense single-column list optimized for fast keyboard navigation")
         }
     }
     

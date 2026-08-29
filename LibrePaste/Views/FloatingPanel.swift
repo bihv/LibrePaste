@@ -72,7 +72,7 @@ public final class FloatingPanel: NSPanel {
     }
     
     public func reposition(
-        mode: WindowPresentationMode,
+        mode: WindowPresentationMode? = nil,
         layout: ClipLayoutStyle? = nil,
         statusItem: NSStatusItem? = nil,
         on screen: NSScreen? = nil,
@@ -80,13 +80,15 @@ public final class FloatingPanel: NSPanel {
     ) {
         guard let targetScreen = screen ?? currentTargetScreen() else { return }
         
+        let activeMode = mode ?? AppDelegate.shared?.store.windowPresentationMode ?? .bottomShelf
         let activeLayout = layout ?? AppDelegate.shared?.store.clipLayoutStyle ?? .compactList
+        let activeStatusItem = statusItem ?? AppDelegate.shared?.statusItem
         var targetFrame: NSRect
         let visibleFrame = targetScreen.visibleFrame
         
-        switch mode {
+        switch activeMode {
         case .bottomShelf:
-            let height = mode.targetHeight(for: activeLayout)
+            let height = activeMode.targetHeight(for: activeLayout)
             targetFrame = NSRect(
                 x: visibleFrame.origin.x,
                 y: visibleFrame.origin.y,
@@ -94,12 +96,12 @@ public final class FloatingPanel: NSPanel {
                 height: height
             )
         case .menuBarPopover:
-            let width = mode.targetWidth(for: activeLayout)
-            let height = mode.targetHeight(for: activeLayout)
+            let width = activeMode.targetWidth(for: activeLayout)
+            let height = activeMode.targetHeight(for: activeLayout)
             var targetX = visibleFrame.midX - width / 2
             var targetY = visibleFrame.maxY - height - 4
             
-            if let button = statusItem?.button, let buttonWindow = button.window {
+            if let button = activeStatusItem?.button, let buttonWindow = button.window {
                 let buttonRectInScreen = buttonWindow.convertToScreen(button.bounds)
                 targetX = buttonRectInScreen.midX - (width / 2)
                 targetY = buttonRectInScreen.minY - height - 4
@@ -110,15 +112,15 @@ public final class FloatingPanel: NSPanel {
             targetFrame = NSRect(x: targetX, y: targetY, width: width, height: height)
             
         case .centerWindow:
-            let width = mode.targetWidth(for: activeLayout)
-            let height = mode.targetHeight(for: activeLayout)
+            let width = activeMode.targetWidth(for: activeLayout)
+            let height = activeMode.targetHeight(for: activeLayout)
             let targetX = visibleFrame.midX - (width / 2)
             let targetY = visibleFrame.midY - (height / 2) + 30
             targetFrame = NSRect(x: targetX, y: targetY, width: width, height: height)
             
         case .atCursor:
-            let width = mode.targetWidth(for: activeLayout)
-            let height = mode.targetHeight(for: activeLayout)
+            let width = activeMode.targetWidth(for: activeLayout)
+            let height = activeMode.targetHeight(for: activeLayout)
             let mousePos = NSEvent.mouseLocation
             
             // Center horizontally on mouse, place slightly below cursor
@@ -156,12 +158,15 @@ public final class FloatingPanel: NSPanel {
     // MARK: - Presentation Lifecycle
     
     public func showPanel(
-        mode: WindowPresentationMode = .bottomShelf,
+        mode: WindowPresentationMode? = nil,
         layout: ClipLayoutStyle? = nil,
         statusItem: NSStatusItem? = nil
     ) {
+        let effectiveMode = mode ?? AppDelegate.shared?.store.windowPresentationMode ?? .bottomShelf
+        let effectiveLayout = layout ?? AppDelegate.shared?.store.clipLayoutStyle ?? .compactList
+        let effectiveStatusItem = statusItem ?? AppDelegate.shared?.statusItem
         let targetScreen = currentTargetScreen()
-        reposition(mode: mode, layout: layout, statusItem: statusItem, on: targetScreen, animated: false)
+        reposition(mode: effectiveMode, layout: effectiveLayout, statusItem: effectiveStatusItem, on: targetScreen, animated: false)
         
         self.alphaValue = 0
         self.orderFrontRegardless()
@@ -196,7 +201,7 @@ public final class FloatingPanel: NSPanel {
     }
     
     public func togglePanel(
-        mode: WindowPresentationMode = .bottomShelf,
+        mode: WindowPresentationMode? = nil,
         layout: ClipLayoutStyle? = nil,
         statusItem: NSStatusItem? = nil
     ) {

@@ -49,6 +49,7 @@ public final class ClipboardStore {
     public var settings: [String: String] = [:]
     
     // MARK: - Display & Layout Modes
+    public var appLanguage: AppLanguage = .system
     public var appAppearance: AppAppearance = .system
     public var windowPresentationMode: WindowPresentationMode = .bottomShelf
     public var clipLayoutStyle: ClipLayoutStyle = .cards
@@ -133,6 +134,11 @@ public final class ClipboardStore {
             DatabaseManager.shared.purgeSensitiveClips(olderThanHours: autoPurgeHours)
         }
         
+        // Language setting
+        let languageRaw = settings["appLanguage"] ?? AppLanguage.system.rawValue
+        appLanguage = AppLanguage(rawValue: languageRaw) ?? .system
+        L10n.currentLanguage = appLanguage
+        
         // Appearance setting
         let appearanceRaw = settings["appAppearance"] ?? AppAppearance.system.rawValue
         appAppearance = AppAppearance(rawValue: appearanceRaw) ?? .system
@@ -150,6 +156,13 @@ public final class ClipboardStore {
         compactPreviewLines = Int(settings["compactPreviewLines"] ?? "2") ?? 2
         
         reloadCustomSensitiveRules()
+    }
+    
+    public func setAppLanguage(_ language: AppLanguage) {
+        appLanguage = language
+        L10n.currentLanguage = language
+        saveSetting(key: "appLanguage", value: language.rawValue)
+        NotificationCenter.default.post(name: .languageChanged, object: language)
     }
     
     public func setAppAppearance(_ appearance: AppAppearance) {
@@ -362,4 +375,5 @@ extension Notification.Name {
     public static let panelDidHide = Notification.Name("panelDidHide")
     public static let displayModeChanged = Notification.Name("displayModeChanged")
     public static let appearanceChanged = Notification.Name("appearanceChanged")
+    public static let languageChanged = Notification.Name("LibrePasteLanguageChanged")
 }

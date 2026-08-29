@@ -56,7 +56,7 @@ public struct LockOverlayView: View {
                 
                 // Titles
                 VStack(spacing: 6) {
-                    Text("LibrePaste is Locked")
+                    Text(L10n.tr("LibrePaste is Locked"))
                         .font(.system(size: 17, weight: .bold, design: .rounded))
                         .foregroundStyle(.primary)
                     
@@ -96,7 +96,7 @@ public struct LockOverlayView: View {
                                     .font(.system(size: 13, weight: .semibold))
                             }
                             
-                            Text(SecurityManager.shared.isAuthenticating ? "Authenticating..." : unlockButtonTitle)
+                            Text(SecurityManager.shared.isAuthenticating ? L10n.tr("Authenticating...") : unlockButtonTitle)
                                 .font(.system(size: 13, weight: .semibold))
                         }
                         .foregroundStyle(.white)
@@ -135,22 +135,22 @@ public struct LockOverlayView: View {
     private var biometricSubtitle: String {
         switch SecurityManager.shared.biometricCapability {
         case .touchID:
-            return "Use Touch ID or your Mac password to unlock clipboard history."
+            return L10n.tr("Protect clipboard history using Touch ID or your Mac password.")
         case .appleWatchOrPassword:
-            return "Enter your Mac password or use Apple Watch to unlock clipboard history."
+            return L10n.tr("Protect clipboard history using Touch ID or your Mac password.")
         case .none:
-            return "Authenticate to access your clipboard history."
+            return L10n.tr("Authenticate to access your clipboard history")
         }
     }
     
     private var unlockButtonTitle: String {
         switch SecurityManager.shared.biometricCapability {
         case .touchID:
-            return "Unlock with Touch ID"
+            return L10n.tr("Unlock (Touch ID)")
         case .appleWatchOrPassword:
-            return "Unlock with Password"
+            return L10n.tr("Unlock (Password)")
         case .none:
-            return "Unlock"
+            return L10n.tr("Unlock")
         }
     }
     
@@ -162,7 +162,7 @@ public struct LockOverlayView: View {
                 .padding(.vertical, 1.5)
                 .background(Color.primary.opacity(0.08))
                 .clipShape(RoundedRectangle(cornerRadius: 3.5))
-            Text(label)
+            Text(L10n.tr(label))
                 .font(.system(size: 10, weight: .regular))
                 .foregroundStyle(.secondary)
         }

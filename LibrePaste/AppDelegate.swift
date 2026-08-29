@@ -13,7 +13,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     
     public let store = ClipboardStore()
     
-    private var statusItem: NSStatusItem?
+    public var statusItem: NSStatusItem?
     private var statusMenu: NSMenu?
     private var floatingPanel: FloatingPanel?
     private var settingsWindow: NSWindow?
@@ -133,6 +133,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             name: .appearanceChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleLanguageChanged),
+            name: .languageChanged,
+            object: nil
+        )
     }
     
     public func applicationWillTerminate(_ notification: Notification) {
@@ -177,9 +183,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     
     public func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "Show LibrePaste (⌘⇧V)", action: #selector(toggleFloatingPanel), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: L10n.tr("Show LibrePaste (⌘⇧V)"), action: #selector(toggleFloatingPanel), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: "Settings...", action: #selector(handleOpenSettingsWindow), keyEquivalent: ","))
+        menu.addItem(NSMenuItem(title: L10n.tr("Settings..."), action: #selector(handleOpenSettingsWindow), keyEquivalent: ","))
         return menu
     }
     
@@ -227,20 +233,20 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "Show LibrePaste (⌘⇧V)", action: #selector(toggleFloatingPanel), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Paste Next from Queue (⌥⌘V)", action: #selector(pasteNextFromQueue), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Toggle Queue HUD (⌥⇧Q)", action: #selector(toggleQueueHUD), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: L10n.tr("Show LibrePaste (⌘⇧V)"), action: #selector(toggleFloatingPanel), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: L10n.tr("Paste Next from Queue (⌥⌘V)"), action: #selector(pasteNextFromQueue), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: L10n.tr("Toggle Queue HUD (⌥⇧Q)"), action: #selector(toggleQueueHUD), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         
-        let pauseItem = NSMenuItem(title: "Pause Watcher", action: #selector(togglePauseWatcher), keyEquivalent: "")
+        let pauseItem = NSMenuItem(title: L10n.tr(store.isPaused ? "Resume Watcher" : "Pause Watcher"), action: #selector(togglePauseWatcher), keyEquivalent: "")
         menu.addItem(pauseItem)
         
-        let lockItem = NSMenuItem(title: "Lock LibrePaste", action: #selector(lockAppNow), keyEquivalent: "")
+        let lockItem = NSMenuItem(title: L10n.tr("Lock LibrePaste"), action: #selector(lockAppNow), keyEquivalent: "")
         menu.addItem(lockItem)
         
-        menu.addItem(NSMenuItem(title: "Settings...", action: #selector(handleOpenSettingsWindow), keyEquivalent: ","))
+        menu.addItem(NSMenuItem(title: L10n.tr("Settings..."), action: #selector(handleOpenSettingsWindow), keyEquivalent: ","))
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: "Quit LibrePaste", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        menu.addItem(NSMenuItem(title: L10n.tr("Quit LibrePaste"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         
         self.statusMenu = menu
     }
@@ -313,9 +319,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         let initialRect = NSRect(x: 0, y: 0, width: 800, height: FloatingPanel.panelHeight)
         let panel = FloatingPanel(contentRect: initialRect)
         
-        let hostingView = NSHostingView(rootView: ClipboardView(store: store))
+        let hostingView = NSHostingView(rootView: ClipboardView(store: store).environment(\.locale, store.appLanguage.locale))
         panel.contentView = hostingView
         self.floatingPanel = panel
+    }
+    
+    @objc public func showFloatingPanel() {
+        SecurityManager.shared.checkLockOnReveal()
+        floatingPanel?.showPanel(mode: store.windowPresentationMode, layout: store.clipLayoutStyle, statusItem: statusItem)
     }
     
     @objc public func toggleFloatingPanel() {
@@ -339,7 +350,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             store.isSearchFocused = false
             store.reloadClips()
             
-            panel.showPanel(mode: store.windowPresentationMode, layout: store.clipLayoutStyle, statusItem: statusItem)
+            showFloatingPanel()
         }
     }
     
@@ -348,8 +359,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc private func handleShowFloatingPanel() {
-        SecurityManager.shared.checkLockOnReveal()
-        floatingPanel?.showPanel(mode: store.windowPresentationMode, layout: store.clipLayoutStyle, statusItem: statusItem)
+        showFloatingPanel()
     }
     
     @objc private func handleToggleFloatingPanel() {
@@ -365,6 +375,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         store.applyAppearance(store.appAppearance)
     }
     
+    @objc private func handleLanguageChanged() {
+        setupStatusItem()
+        if let panel = floatingPanel {
+            let hostingView = NSHostingView(rootView: ClipboardView(store: store).environment(\.locale, store.appLanguage.locale))
+            panel.contentView = hostingView
+        }
+    }
+    
     // MARK: - Settings Window
     
     @objc public func handleOpenSettingsWindow() {
@@ -376,30 +394,40 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             self.isSettingsWindowOpen = true
             self.updateDockVisibility()
             
+            NSApp.activate(ignoringOtherApps: true)
+            
+            // Try standard macOS SwiftUI Settings action first
+            if #available(macOS 14.0, *) {
+                if NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) {
+                    return
+                }
+            } else {
+                if NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil) {
+                    return
+                }
+            }
+            
             if let win = self.settingsWindow {
                 if win.isMiniaturized {
                     win.deminiaturize(nil)
                 }
                 win.orderFrontRegardless()
                 win.makeKeyAndOrderFront(nil)
-                NSRunningApplication.current.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
                 NotificationCenter.default.post(name: NSWindow.didBecomeKeyNotification, object: win)
                 return
             }
             
             let settingsView = SettingsView(store: self.store)
+                .environment(\.locale, self.store.appLanguage.locale)
             let hostingView = NSHostingView(rootView: settingsView)
             
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 520, height: 490),
+                contentRect: NSRect(x: 0, y: 0, width: 540, height: 500),
                 styleMask: [.titled, .closable, .miniaturizable],
                 backing: .buffered,
                 defer: false
             )
-            window.toolbarStyle = .preference
-            window.titlebarSeparatorStyle = .line
-            SettingsWindowController.shared.setupToolbar(for: window)
-            
+            window.title = L10n.tr("LibrePaste Settings")
             window.center()
             window.contentView = hostingView
             window.isReleasedWhenClosed = false
@@ -408,8 +436,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             self.settingsWindow = window
             window.orderFrontRegardless()
             window.makeKeyAndOrderFront(nil)
-            NSRunningApplication.current.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
         }
+    }
+    
+    @MainActor
+    public func setSettingsWindowOpen(_ isOpen: Bool) {
+        guard isSettingsWindowOpen != isOpen else { return }
+        isSettingsWindowOpen = isOpen
+        updateDockVisibility()
     }
     
     // MARK: - Preview Window
@@ -455,12 +489,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             onClose: { [weak self] in
                 self?.closePreviewWindow()
             }
-        )
+        ).environment(\.locale, store.appLanguage.locale)
         
         let hostingView = NSHostingView(rootView: previewView)
         
         if let window = previewWindow {
-            window.title = "LibrePaste Preview - \(clip.type.displayName)"
+            window.title = L10n.tr("LibrePaste Preview - %@", clip.type.displayName)
             window.contentView = hostingView
             if window.isMiniaturized {
                 window.deminiaturize(nil)
@@ -477,7 +511,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "LibrePaste Preview - \(clip.type.displayName)"
+        window.title = L10n.tr("LibrePaste Preview - %@", clip.type.displayName)
         window.minSize = NSSize(width: 500, height: 380)
         window.center()
         window.contentView = hostingView
@@ -496,7 +530,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         
         if shouldRestoreFloatingPanelOnClosePreview {
             shouldRestoreFloatingPanelOnClosePreview = false
-            floatingPanel?.showPanel()
+            showFloatingPanel()
         } else {
             let hasOtherVisibleWindows = NSApp.windows.contains { win in
                 win != self.previewWindow && win != self.editWindow && win.isVisible && !(win is FloatingPanel) && !win.className.contains("StatusBar")
@@ -551,12 +585,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             onCancel: { [weak self] in
                 self?.closeEditWindow()
             }
-        )
+        ).environment(\.locale, store.appLanguage.locale)
         
         let hostingView = NSHostingView(rootView: editView)
         
         if let window = editWindow {
-            window.title = "LibrePaste Edit - \(clip.type.displayName)"
+            window.title = L10n.tr("LibrePaste Edit - %@", clip.type.displayName)
             window.contentView = hostingView
             if window.isMiniaturized {
                 window.deminiaturize(nil)
@@ -573,7 +607,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "LibrePaste Edit - \(clip.type.displayName)"
+        window.title = L10n.tr("LibrePaste Edit - %@", clip.type.displayName)
         window.minSize = NSSize(width: 500, height: 380)
         window.center()
         window.contentView = hostingView
@@ -592,7 +626,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         
         if shouldRestoreFloatingPanelOnCloseEdit {
             shouldRestoreFloatingPanelOnCloseEdit = false
-            floatingPanel?.showPanel()
+            showFloatingPanel()
         } else {
             let hasOtherVisibleWindows = NSApp.windows.contains { win in
                 win != self.previewWindow && win != self.editWindow && win.isVisible && !(win is FloatingPanel) && !win.className.contains("StatusBar")
@@ -613,7 +647,7 @@ extension AppDelegate: NSWindowDelegate {
             currentPreviewClip = nil
             if shouldRestoreFloatingPanelOnClosePreview {
                 shouldRestoreFloatingPanelOnClosePreview = false
-                floatingPanel?.showPanel()
+                showFloatingPanel()
             } else {
                 let hasOtherVisibleWindows = NSApp.windows.contains { win in
                     win != window && win.isVisible && !(win is FloatingPanel) && !win.className.contains("StatusBar")
@@ -626,7 +660,7 @@ extension AppDelegate: NSWindowDelegate {
             currentEditClip = nil
             if shouldRestoreFloatingPanelOnCloseEdit {
                 shouldRestoreFloatingPanelOnCloseEdit = false
-                floatingPanel?.showPanel()
+                showFloatingPanel()
             } else {
                 let hasOtherVisibleWindows = NSApp.windows.contains { win in
                     win != window && win.isVisible && !(win is FloatingPanel) && !win.className.contains("StatusBar")

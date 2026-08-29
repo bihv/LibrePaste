@@ -19,22 +19,22 @@ public enum AppAppearance: String, CaseIterable, Identifiable, Codable, Sendable
     public var displayName: String {
         switch self {
         case .system:
-            return "System"
+            return L10n.tr("System")
         case .light:
-            return "Light"
+            return L10n.tr("Light")
         case .dark:
-            return "Dark"
+            return L10n.tr("Dark")
         }
     }
     
     public var description: String {
         switch self {
         case .system:
-            return "Automatically adapt to macOS appearance"
+            return L10n.tr("Automatically adapt to macOS appearance")
         case .light:
-            return "Always use light appearance"
+            return L10n.tr("Always use light appearance")
         case .dark:
-            return "Always use dark appearance"
+            return L10n.tr("Always use dark appearance")
         }
     }
     

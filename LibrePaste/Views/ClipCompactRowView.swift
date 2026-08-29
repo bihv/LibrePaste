@@ -164,7 +164,7 @@ public struct ClipCompactRowView: View {
                     Image(systemName: clip.sensitiveType?.iconName ?? "lock.shield.fill")
                         .font(.system(size: 10))
                         .foregroundStyle(clip.sensitiveType?.themeColor ?? .orange)
-                    Text(clip.customRuleName ?? clip.sensitiveType?.displayName ?? "Sensitive Data Masked")
+                    Text(clip.customRuleName ?? clip.sensitiveType?.displayName ?? L10n.tr("Sensitive Data Masked"))
                         .font(.system(size: 11.5, weight: .medium, design: .monospaced))
                         .foregroundStyle(.secondary)
                 }
@@ -200,7 +200,7 @@ public struct ClipCompactRowView: View {
                 .frame(width: 24, height: 24)
                 .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
             
-            Text(clip.preview.isEmpty ? "Image" : clip.preview)
+            Text(clip.preview.isEmpty ? L10n.tr("Image") : clip.preview)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
@@ -211,15 +211,15 @@ public struct ClipCompactRowView: View {
         HStack(spacing: 5) {
             // Character count / clip type info
             if clip.type == .text || clip.type == .richtext {
-                Text("\(clip.content.count) chars")
+                Text("\(clip.content.count) \(L10n.tr("chars"))")
                     .font(.system(size: 10))
                     .foregroundStyle(.tertiary)
             } else if clip.type == .link {
-                Text("URL")
+                Text(L10n.tr("Link"))
                     .font(.system(size: 10))
                     .foregroundStyle(.tertiary)
             } else if clip.type == .image {
-                Text("Image")
+                Text(L10n.tr("Image"))
                     .font(.system(size: 10))
                     .foregroundStyle(.tertiary)
             }
@@ -259,14 +259,14 @@ public struct ClipCompactRowView: View {
                 Image(systemName: "pin.fill")
                     .font(.system(size: 10))
                     .foregroundStyle(Color.orange)
-                    .help("Pinned to Top")
+                    .help(L10n.tr("Pin to Top"))
             }
             
             if PasteQueueManager.shared.contains(clipId: clip.id) {
                 Image(systemName: "list.bullet.clipboard.fill")
                     .font(.system(size: 10))
                     .foregroundStyle(Color.accentColor)
-                    .help("In Paste Queue")
+                    .help(L10n.tr("Paste Queue"))
             }
             
             // Hover Quick Actions Toolbar
@@ -294,7 +294,7 @@ public struct ClipCompactRowView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 4))
             }
             .buttonStyle(.plain)
-            .help("Paste into active app (↵)")
+            .help(L10n.tr("Paste into active app (↵)"))
             
             // Quick Look Preview
             Button(action: { onAction(.preview) }) {
@@ -306,7 +306,7 @@ public struct ClipCompactRowView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 4))
             }
             .buttonStyle(.plain)
-            .help("Quick Look Preview (Space)")
+            .help(L10n.tr("Quick Look Preview (Space)"))
             
             // Toggle Pin
             Button(action: { onAction(.togglePin) }) {
@@ -318,7 +318,7 @@ public struct ClipCompactRowView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 4))
             }
             .buttonStyle(.plain)
-            .help(clip.pinned ? "Unpin clip" : "Pin clip to top")
+            .help(clip.pinned ? L10n.tr("Unpin clip") : L10n.tr("Pin clip to top"))
             
             // Toggle Reveal (if sensitive)
             if clip.isSensitive {
@@ -331,7 +331,7 @@ public struct ClipCompactRowView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
                 .buttonStyle(.plain)
-                .help(isRevealed ? "Hide sensitive content" : "Reveal sensitive content")
+                .help(isRevealed ? L10n.tr("Hide sensitive content") : L10n.tr("Reveal sensitive content"))
             }
             
             // Delete Clip
@@ -344,7 +344,7 @@ public struct ClipCompactRowView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 4))
             }
             .buttonStyle(.plain)
-            .help("Delete clip (⌘⌫)")
+            .help(L10n.tr("Delete clip (⌘⌫)"))
         }
     }
     
@@ -378,43 +378,43 @@ public struct ClipCompactRowView: View {
     @ViewBuilder
     private var contextMenuItems: some View {
         Button(action: { onAction(.paste) }) {
-            Label("Paste", systemImage: "doc.on.clipboard")
+            Label(L10n.tr("Paste"), systemImage: "doc.on.clipboard")
         }
         
         if clip.type == .link || clip.type == .richtext {
             Button(action: { onAction(.pastePlain) }) {
-                Label("Paste as Plain Text", systemImage: "text.alignleft")
+                Label(L10n.tr("Paste as Plain Text"), systemImage: "text.alignleft")
             }
         }
         
         if clip.isSensitive {
             Button(action: { onAction(.toggleReveal) }) {
-                Label(isRevealed ? "Hide Sensitive Content" : "Reveal Sensitive Content", systemImage: isRevealed ? "eye.slash" : "eye")
+                Label(isRevealed ? L10n.tr("Hide Sensitive Content") : L10n.tr("Reveal Sensitive Content"), systemImage: isRevealed ? "eye.slash" : "eye")
             }
         }
         
         Button(action: { onAction(.preview) }) {
-            Label("Quick Look Preview", systemImage: "eye")
+            Label(L10n.tr("Quick Look Preview"), systemImage: "eye")
         }
         
         if clip.type != .image {
             Button(action: { onAction(.edit) }) {
-                Label("Edit...", systemImage: "pencil")
+                Label(L10n.tr("Edit..."), systemImage: "pencil")
             }
         }
         
         Divider()
         
-        Menu("Pinboard") {
+        Menu(L10n.tr("Pinboard")) {
             if clip.pinboardId != nil {
                 Button(action: { onAction(.addToPinboard(nil)) }) {
-                    Label("Remove from Pinboard", systemImage: "xmark")
+                    Label(L10n.tr("Remove from Pinboard"), systemImage: "xmark")
                 }
                 Divider()
             }
             
             if pinboards.isEmpty {
-                Text("No Pinboards Available")
+                Text(L10n.tr("No Pinboards Available"))
             } else {
                 ForEach(pinboards) { pb in
                     Button(action: { onAction(.addToPinboard(pb.id)) }) {
@@ -430,7 +430,7 @@ public struct ClipCompactRowView: View {
         }
         
         Button(action: { onAction(.togglePin) }) {
-            Label(clip.pinned ? "Unpin" : "Pin to Top", systemImage: clip.pinned ? "pin.slash" : "pin")
+            Label(clip.pinned ? L10n.tr("Unpin") : L10n.tr("Pin to Top"), systemImage: clip.pinned ? "pin.slash" : "pin")
         }
         
         Divider()
@@ -438,18 +438,18 @@ public struct ClipCompactRowView: View {
         let isInQueue = PasteQueueManager.shared.contains(clipId: clip.id)
         if isInQueue {
             Button(action: { onAction(.removeFromQueue) }) {
-                Label("Remove from Paste Queue", systemImage: "minus.rectangle")
+                Label(L10n.tr("Remove from Paste Queue"), systemImage: "minus.rectangle")
             }
         } else {
             Button(action: { onAction(.enqueue) }) {
-                Label("Add to Paste Queue", systemImage: "list.bullet.clipboard")
+                Label(L10n.tr("Add to Paste Queue"), systemImage: "list.bullet.clipboard")
             }
         }
         
         Divider()
         
         Button(role: .destructive, action: { onAction(.delete) }) {
-            Label("Delete", systemImage: "trash")
+            Label(L10n.tr("Delete"), systemImage: "trash")
         }
     }
 }

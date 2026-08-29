@@ -16,8 +16,8 @@ public enum PasteQueueOrder: String, Codable, CaseIterable, Identifiable {
     
     public var displayName: String {
         switch self {
-        case .fifo: return "FIFO (First In, First Out)"
-        case .lifo: return "LIFO (Last In, First Out)"
+        case .fifo: return L10n.tr("First In, First Out (FIFO)")
+        case .lifo: return L10n.tr("Last In, First Out (LIFO)")
         }
     }
     
@@ -37,8 +37,8 @@ public enum PasteQueueBehavior: String, Codable, CaseIterable, Identifiable {
     
     public var displayName: String {
         switch self {
-        case .removeAfterPaste: return "Remove After Paste"
-        case .cycle: return "Keep in Queue (Loop/Cycle)"
+        case .removeAfterPaste: return L10n.tr("Remove item after paste")
+        case .cycle: return L10n.tr("Keep Forever")
         }
     }
 }

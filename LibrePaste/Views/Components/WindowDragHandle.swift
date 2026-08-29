@@ -113,7 +113,7 @@ public final class NSWindowDragHandleView: NSView {
         let config = NSImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
             .applying(.init(hierarchicalColor: tintColor))
         
-        if let symbolImage = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Drag to move window")?.withSymbolConfiguration(config) {
+        if let symbolImage = NSImage(systemSymbolName: symbolName, accessibilityDescription: L10n.tr("Drag to move window"))?.withSymbolConfiguration(config) {
             let imageSize = symbolImage.size
             let originX = (bounds.width - imageSize.width) / 2
             let originY = (bounds.height - imageSize.height) / 2
@@ -134,7 +134,7 @@ public struct WindowDragGripView: NSViewRepresentable {
     public func makeNSView(context: Context) -> NSWindowDragHandleView {
         let view = NSWindowDragHandleView(symbolName: symbolName)
         view.wantsLayer = true
-        view.toolTip = "Drag to move window"
+        view.toolTip = L10n.tr("Drag to move window")
         return view
     }
     

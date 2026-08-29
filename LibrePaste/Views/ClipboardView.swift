@@ -470,7 +470,7 @@ public struct ClipboardView: View {
                 )
         }
         .buttonStyle(.plain)
-        .help(store.clipLayoutStyle == .cards ? "Switch to Vertical Compact List" : "Switch to Horizontal Cards")
+        .help(store.clipLayoutStyle == .cards ? L10n.tr("Vertical Compact List") : L10n.tr("Horizontal Cards"))
     }
     
     private func pauseToggleButton(showText: Bool) -> some View {
@@ -479,7 +479,7 @@ public struct ClipboardView: View {
                 Image(systemName: store.isPaused ? "shield.slash.fill" : "shield.fill")
                     .font(.system(size: 12, weight: .semibold))
                 if store.isPaused && showText {
-                    Text("Paused")
+                    Text(L10n.tr("Paused"))
                         .font(.system(size: 11, weight: .semibold))
                         .lineLimit(1)
                         .fixedSize(horizontal: true, vertical: false)
@@ -498,13 +498,11 @@ public struct ClipboardView: View {
             )
         }
         .buttonStyle(.plain)
-        .help(store.isPaused ? "Resume Clipboard Watcher" : "Pause Clipboard Watcher (Incognito)")
+        .help(store.isPaused ? L10n.tr("Resume Watcher") : L10n.tr("Pause Watcher"))
     }
     
     private var settingsButton: some View {
-        Button(action: {
-            NotificationCenter.default.post(name: .openSettingsWindow, object: nil)
-        }) {
+        SettingsLink {
             Image(systemName: "gearshape")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Color.primary.opacity(0.85))
@@ -519,8 +517,12 @@ public struct ClipboardView: View {
                 )
         }
         .buttonStyle(.plain)
-        .help("Open Settings")
+        .simultaneousGesture(TapGesture().onEnded {
+            NotificationCenter.default.post(name: .hideFloatingPanel, object: nil)
+        })
+        .help(L10n.tr("Settings..."))
     }
+
     
     private func clearAllButton(isCompact: Bool) -> some View {
         Button(action: { store.clearAll() }) {
@@ -538,7 +540,7 @@ public struct ClipboardView: View {
                             .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
                     )
             } else {
-                Text("Clear All")
+                Text(L10n.tr("Clear History"))
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Color.primary.opacity(0.85))
                     .padding(.horizontal, 8)
@@ -556,7 +558,7 @@ public struct ClipboardView: View {
             }
         }
         .buttonStyle(.plain)
-        .help("Clear All Unpinned Clips")
+        .help(L10n.tr("Clear History"))
     }
     
     private var queueControlBar: some View {
@@ -565,11 +567,11 @@ public struct ClipboardView: View {
                 Image(systemName: "list.bullet.clipboard")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
-                Text("Paste Queue")
+                Text(L10n.tr("Paste Queue"))
                     .font(.system(size: 13, weight: .bold))
                 
                 let count = PasteQueueManager.shared.items.count
-                Text("\(count) item\(count == 1 ? "" : "s")")
+                Text(L10n.tr("%lld items", Int64(count)))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
             }
@@ -593,7 +595,7 @@ public struct ClipboardView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
             .buttonStyle(.plain)
-            .help("Toggle Queue Order (FIFO / LIFO)")
+            .help(L10n.tr("Toggle Queue Order (FIFO / LIFO)"))
             
             // Collect Mode (REC)
             Button(action: {
@@ -605,7 +607,7 @@ public struct ClipboardView: View {
                     Circle()
                         .fill(PasteQueueManager.shared.isCollectModeActive ? Color.red : Color.secondary.opacity(0.5))
                         .frame(width: 7, height: 7)
-                    Text("Collect Mode")
+                    Text(L10n.tr("Collect Mode"))
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(PasteQueueManager.shared.isCollectModeActive ? Color.red : .primary)
                 }
@@ -615,7 +617,7 @@ public struct ClipboardView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
             .buttonStyle(.plain)
-            .help("When active, all copied clips are automatically added to the queue")
+            .help(L10n.tr("When active, all copied clips are automatically added to the queue"))
             
             Spacer()
             
@@ -629,7 +631,7 @@ public struct ClipboardView: View {
                 HStack(spacing: 5) {
                     Image(systemName: "play.fill")
                         .font(.system(size: 10))
-                    Text("Paste Next (⌥⌘V)")
+                    Text(L10n.tr("Paste Next (⌥⌘V)"))
                         .font(.system(size: 11, weight: .semibold))
                 }
                 .padding(.horizontal, 10)
@@ -648,7 +650,7 @@ public struct ClipboardView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "pip")
                         .font(.system(size: 10))
-                    Text("Floating HUD")
+                    Text(L10n.tr("Floating HUD"))
                         .font(.system(size: 11, weight: .medium))
                 }
                 .padding(.horizontal, 8)
@@ -657,7 +659,7 @@ public struct ClipboardView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
             .buttonStyle(.plain)
-            .help("Show Floating Mini Queue HUD")
+            .help(L10n.tr("Show Floating Mini Queue HUD"))
             
             // Clear Queue
             Button(action: {
@@ -669,7 +671,7 @@ public struct ClipboardView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "trash")
                         .font(.system(size: 10))
-                    Text("Clear")
+                    Text(L10n.tr("Clear"))
                         .font(.system(size: 11, weight: .medium))
                 }
                 .padding(.horizontal, 8)
@@ -754,7 +756,7 @@ public struct ClipboardView: View {
                         .strokeBorder(Color.primary.opacity(0.14), lineWidth: 1)
                 )
                 .fixedSize(horizontal: true, vertical: false)
-            Text(label)
+            Text(L10n.tr(label))
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(Color.primary.opacity(0.7))
                 .lineLimit(1)

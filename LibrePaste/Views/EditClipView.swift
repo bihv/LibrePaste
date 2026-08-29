@@ -181,7 +181,7 @@ public struct EditClipView: View {
                     .foregroundStyle(.secondary)
                 
                 if isModified {
-                    Text("Modified")
+                    Text(L10n.tr("Modified"))
                         .font(.system(size: 10, weight: .medium))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
@@ -201,8 +201,8 @@ public struct EditClipView: View {
                         switchMode(to: newMode)
                     }
                 )) {
-                    Text("Visual").tag(EditorMode.wysiwyg)
-                    Text("HTML").tag(EditorMode.source)
+                    Text(L10n.tr("Visual")).tag(EditorMode.wysiwyg)
+                    Text(L10n.tr("HTML")).tag(EditorMode.source)
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 130)
@@ -211,11 +211,11 @@ public struct EditClipView: View {
             // Format JSON (for JSON clips)
             if canFormatJSON {
                 Button(action: formatJSONAction) {
-                    Label("Format JSON", systemImage: "curlybraces")
+                    Label(L10n.tr("Format JSON"), systemImage: "curlybraces")
                         .font(.system(size: 12))
                 }
                 .buttonStyle(.bordered)
-                .help("Beautify JSON content")
+                .help(L10n.tr("Beautify JSON content"))
             }
             
             // Monospace Toggle (when in source/raw mode)
@@ -225,33 +225,33 @@ public struct EditClipView: View {
                         .font(.system(size: 12))
                 }
                 .buttonStyle(.bordered)
-                .help(isMonospace ? "Switch to standard font" : "Switch to monospaced font")
+                .help(isMonospace ? L10n.tr("Switch to standard font") : L10n.tr("Switch to monospaced font"))
             }
             
             // Reset Button
             if isModified {
                 Button(action: resetToOriginal) {
-                    Label("Reset", systemImage: "arrow.counterclockwise")
+                    Label(L10n.tr("Reset"), systemImage: "arrow.counterclockwise")
                         .font(.system(size: 12))
                 }
                 .buttonStyle(.bordered)
-                .help("Revert changes to original content")
+                .help(L10n.tr("Revert changes to original content"))
             }
             
             // Cancel Button (Esc)
-            Button("Cancel", action: onCancel)
+            Button(L10n.tr("Cancel"), action: onCancel)
                 .buttonStyle(.bordered)
                 .keyboardShortcut(.cancelAction)
-                .help("Discard changes (Esc)")
+                .help(L10n.tr("Discard changes (Esc)"))
             
             // Save Button (⌘S / ⌘Return)
             Button(action: handleSave) {
-                Label("Save", systemImage: "checkmark")
+                Label(L10n.tr("Save"), systemImage: "checkmark")
                     .font(.system(size: 12, weight: .medium))
             }
             .buttonStyle(.borderedProminent)
             .keyboardShortcut("s", modifiers: .command)
-            .help("Save changes (⌘S or ⌘Return)")
+            .help(L10n.tr("Save changes (⌘S or ⌘Return)"))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -269,7 +269,7 @@ public struct EditClipView: View {
                         .frame(width: 22, height: 20)
                 }
                 .buttonStyle(.bordered)
-                .help("Bold (⌘B)")
+                .help(L10n.tr("Bold (⌘B)"))
                 
                 Button(action: { richController.toggleItalic() }) {
                     Image(systemName: "italic")
@@ -277,7 +277,7 @@ public struct EditClipView: View {
                         .frame(width: 22, height: 20)
                 }
                 .buttonStyle(.bordered)
-                .help("Italic (⌘I)")
+                .help(L10n.tr("Italic (⌘I)"))
                 
                 Button(action: { richController.toggleUnderline() }) {
                     Image(systemName: "underline")
@@ -285,7 +285,7 @@ public struct EditClipView: View {
                         .frame(width: 22, height: 20)
                 }
                 .buttonStyle(.bordered)
-                .help("Underline (⌘U)")
+                .help(L10n.tr("Underline (⌘U)"))
                 
                 Button(action: { richController.toggleStrikethrough() }) {
                     Image(systemName: "strikethrough")
@@ -293,7 +293,7 @@ public struct EditClipView: View {
                         .frame(width: 22, height: 20)
                 }
                 .buttonStyle(.bordered)
-                .help("Strikethrough")
+                .help(L10n.tr("Strikethrough"))
             }
             
             Divider()
@@ -302,20 +302,20 @@ public struct EditClipView: View {
             
             // Headings / Body Menu
             Menu {
-                Button("Heading (H1)") {
+                Button(L10n.tr("Heading (H1)")) {
                     richController.applyHeading()
                 }
-                Button("Subheading (H2)") {
+                Button(L10n.tr("Subheading (H2)")) {
                     richController.applySubheading()
                 }
-                Button("Body Text") {
+                Button(L10n.tr("Body Text")) {
                     richController.applyBody()
                 }
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "textformat.size")
                         .font(.system(size: 11))
-                    Text("Style")
+                    Text(L10n.tr("Style"))
                         .font(.system(size: 11))
                 }
                 .frame(height: 20)
@@ -325,7 +325,7 @@ public struct EditClipView: View {
             .padding(.vertical, 2)
             .background(Color.primary.opacity(0.06))
             .clipShape(RoundedRectangle(cornerRadius: 5))
-            .help("Paragraph & Heading styles")
+            .help(L10n.tr("Paragraph & Heading styles"))
             
             Divider()
                 .frame(height: 16)
@@ -338,7 +338,7 @@ public struct EditClipView: View {
                     .frame(width: 22, height: 20)
             }
             .buttonStyle(.bordered)
-            .help("Bullet list")
+            .help(L10n.tr("Bullet list"))
             
             Button(action: { richController.clearFormatting() }) {
                 Image(systemName: "clear")
@@ -346,7 +346,7 @@ public struct EditClipView: View {
                     .frame(width: 22, height: 20)
             }
             .buttonStyle(.bordered)
-            .help("Clear formatting")
+            .help(L10n.tr("Clear formatting"))
             
             Spacer()
             
@@ -358,7 +358,7 @@ public struct EditClipView: View {
             }
             .buttonStyle(.bordered)
             .disabled(!richController.canUndo)
-            .help("Undo (⌘Z)")
+            .help(L10n.tr("Undo (⌘Z)"))
             
             Button(action: { richController.redo() }) {
                 Image(systemName: "arrow.uturn.forward")
@@ -367,7 +367,7 @@ public struct EditClipView: View {
             }
             .buttonStyle(.bordered)
             .disabled(!richController.canRedo)
-            .help("Redo (⌘⇧Z)")
+            .help(L10n.tr("Redo (⌘⇧Z)"))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 6)
@@ -424,7 +424,7 @@ public struct EditClipView: View {
                 Image(systemName: isRichText && mode == .wysiwyg ? "pencil.and.outline" : "curlybraces")
                     .font(.system(size: 9))
                     .foregroundStyle(.secondary)
-                Text(isRichText && mode == .wysiwyg ? "WYSIWYG Editor" : (isRichText ? "HTML Source" : "Plain Editor"))
+                Text(isRichText && mode == .wysiwyg ? L10n.tr("WYSIWYG Editor") : (isRichText ? L10n.tr("HTML Source") : L10n.tr("Plain Editor")))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
@@ -432,21 +432,21 @@ public struct EditClipView: View {
             Spacer()
             
             // Live stats
-            Text("\(currentTextContent.count) characters")
+            Text(L10n.tr("%lld characters", currentTextContent.count))
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
             
             Text("•")
                 .foregroundStyle(.tertiary)
             
-            Text("\(wordCount) words")
+            Text(L10n.tr("%lld words", wordCount))
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
             
             Text("•")
                 .foregroundStyle(.tertiary)
             
-            Text("\(lineCount) lines")
+            Text(L10n.tr("%lld lines", lineCount))
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
         }

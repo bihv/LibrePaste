@@ -63,7 +63,7 @@ public struct HotkeyRecorderView: View {
                         }
                     }
                 }
-                .help(isRecording ? "Press your shortcut keys now (Esc to cancel)" : "Click to record a new shortcut")
+                .help(isRecording ? L10n.tr("Press your shortcut keys now (Esc to cancel)") : L10n.tr("Click to record a new shortcut"))
                 .offset(x: shakeOffset)
                 
                 // Reset Button (shown if current shortcut differs from default)
@@ -77,15 +77,15 @@ public struct HotkeyRecorderView: View {
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
-                    .help("Reset to default (\(defaultShortcut.displayString))")
-                    .accessibilityLabel("Reset shortcut to default (\(defaultShortcut.displayString))")
+                    .help(L10n.tr("Reset to default (%@)", defaultShortcut.displayString))
+                    .accessibilityLabel(L10n.tr("Reset shortcut to default (%@)", defaultShortcut.displayString))
                     .transition(.opacity.combined(with: .scale))
                 }
             }
             
             // Helper / Error text
             if isRecording {
-                Text(errorMessage ?? "Press keys with ⌘, ⌥, or ⌃ (Esc to cancel)")
+                Text(errorMessage ?? L10n.tr("Press keys with ⌘, ⌥, or ⌃ (Esc to cancel)"))
                     .font(.system(size: 10, weight: .regular))
                     .foregroundStyle(errorMessage != nil ? Color.red : Color.secondary)
                     .transition(.opacity)
@@ -131,7 +131,7 @@ public struct HotkeyRecorderView: View {
                 Circle()
                     .fill(Color.accentColor)
                     .frame(width: 6, height: 6)
-                Text("Type shortcut...")
+                Text(L10n.tr("Type shortcut..."))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
             }
@@ -224,7 +224,7 @@ public struct HotkeyRecorderView: View {
                     return nil
                 } else {
                     DispatchQueue.main.async {
-                        self.triggerErrorFeedback(message: "Shortcut must include ⌘, ⌥, or ⌃")
+                        self.triggerErrorFeedback(message: L10n.tr("Shortcut must include ⌘, ⌥, or ⌃"))
                     }
                     return nil
                 }

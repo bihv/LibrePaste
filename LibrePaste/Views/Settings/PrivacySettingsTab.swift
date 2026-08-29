@@ -39,13 +39,13 @@ public struct PrivacySettingsTab: View {
     public var body: some View {
         Form {
             // 1. App Lock & Security
-            Section("App Lock & Security") {
+            Section(L10n.tr("App Lock & Security")) {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
-                            Text("Require Authentication")
+                            Text(L10n.tr("Require Authentication"))
                                 .font(.system(size: 13, weight: .medium))
-                            Text("Protect clipboard history using Touch ID or your Mac password.")
+                            Text(L10n.tr("Protect clipboard history using Touch ID or your Mac password."))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -63,7 +63,7 @@ public struct PrivacySettingsTab: View {
                             .opacity(0.4)
                         
                         HStack {
-                            Text("Auto-Lock Inactivity")
+                            Text(L10n.tr("Auto-Lock Inactivity"))
                                 .font(.system(size: 13))
                             Spacer()
                             Picker("", selection: $appLockTimeout) {
@@ -78,7 +78,7 @@ public struct PrivacySettingsTab: View {
                             }
                         }
                         
-                        Toggle("Lock on System Sleep / Screen Lock", isOn: $appLockOnSleep)
+                        Toggle(L10n.tr("Lock on System Sleep / Screen Lock"), isOn: $appLockOnSleep)
                             .font(.system(size: 13))
                             .onChange(of: appLockOnSleep) { _, _ in
                                 updateLockSettings()
@@ -88,7 +88,7 @@ public struct PrivacySettingsTab: View {
                             Image(systemName: SecurityManager.shared.biometricCapability.iconName)
                                 .font(.system(size: 11, weight: .semibold))
                                 .foregroundStyle(Color.accentColor)
-                            Text("Hardware: \(SecurityManager.shared.biometricCapability.title)")
+                            Text(L10n.tr("Hardware: %@", SecurityManager.shared.biometricCapability.title))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -99,13 +99,13 @@ public struct PrivacySettingsTab: View {
             }
             
             // 2. Sensitive Data Masking & Protection (Unified)
-            Section("Sensitive Data Masking & Protection") {
+            Section(L10n.tr("Sensitive Data Masking & Protection")) {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
-                            Text("Auto-Detect & Mask Sensitive Data")
+                            Text(L10n.tr("Auto-Detect & Mask Sensitive Data"))
                                 .font(.system(size: 13, weight: .medium))
-                            Text("Automatically shields API keys, credit cards, database URLs, credentials and custom tokens.")
+                            Text(L10n.tr("Automatically shields API keys, credit cards, database URLs, credentials and custom tokens."))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -125,32 +125,32 @@ public struct PrivacySettingsTab: View {
                         
                         // Sub-section A: Built-in Categories
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Protected Categories:")
+                            Text(L10n.tr("Protected Categories:"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             
-                            Toggle("API Keys, Secret Tokens & Private Keys", isOn: $maskApiKeys)
+                            Toggle(L10n.tr("API Keys, Secret Tokens & Private Keys"), isOn: $maskApiKeys)
                                 .font(.system(size: 12.5))
                                 .onChange(of: maskApiKeys) { _, val in
                                     store.saveSetting(key: "maskApiKeys", value: val ? "true" : "false")
                                     store.reloadClips()
                                 }
                             
-                            Toggle("Payment & Credit Cards (with Luhn validation)", isOn: $maskCreditCards)
+                            Toggle(L10n.tr("Payment & Credit Cards (with Luhn validation)"), isOn: $maskCreditCards)
                                 .font(.system(size: 12.5))
                                 .onChange(of: maskCreditCards) { _, val in
                                     store.saveSetting(key: "maskCreditCards", value: val ? "true" : "false")
                                     store.reloadClips()
                                 }
                             
-                            Toggle("Database Connection Strings & Passwords", isOn: $maskDatabaseUrls)
+                            Toggle(L10n.tr("Database Connection Strings & Passwords"), isOn: $maskDatabaseUrls)
                                 .font(.system(size: 12.5))
                                 .onChange(of: maskDatabaseUrls) { _, val in
                                     store.saveSetting(key: "maskDatabaseUrls", value: val ? "true" : "false")
                                     store.reloadClips()
                                 }
                             
-                            Toggle("Personal Identifiable Information (CCCD, SSN)", isOn: $maskPII)
+                            Toggle(L10n.tr("Personal Identifiable Information (CCCD, SSN)"), isOn: $maskPII)
                                 .font(.system(size: 12.5))
                                 .onChange(of: maskPII) { _, val in
                                     store.saveSetting(key: "maskPII", value: val ? "true" : "false")
@@ -165,11 +165,11 @@ public struct PrivacySettingsTab: View {
                         // Sub-section B: Custom Sensitive Rules
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Text("Custom Sensitive Rules:")
+                                Text(L10n.tr("Custom Sensitive Rules:"))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                                 Spacer()
-                                Button("+ Add Rule...") {
+                                Button(L10n.tr("+ Add Rule...")) {
                                     showingAddRuleSheet = true
                                 }
                                 .font(.caption)
@@ -178,7 +178,7 @@ public struct PrivacySettingsTab: View {
                             }
                             
                             if store.customSensitiveRules.isEmpty {
-                                Text("No custom regular expressions defined yet.")
+                                Text(L10n.tr("No custom regular expressions defined yet."))
                                     .font(.caption)
                                     .foregroundStyle(.tertiary)
                                     .padding(.vertical, 2)
@@ -226,7 +226,8 @@ public struct PrivacySettingsTab: View {
                                                     .foregroundStyle(.secondary)
                                             }
                                             .buttonStyle(.plain)
-                                            .help("Edit rule")
+                                            .help(L10n.tr("Edit rule"))
+                                            .accessibilityLabel(L10n.tr("Edit rule"))
                                             
                                             Button(action: { store.deleteCustomSensitiveRule(id: rule.id) }) {
                                                 Image(systemName: "trash")
@@ -234,7 +235,8 @@ public struct PrivacySettingsTab: View {
                                                     .foregroundStyle(.red)
                                             }
                                             .buttonStyle(.plain)
-                                            .help("Delete rule")
+                                            .help(L10n.tr("Delete rule"))
+                                            .accessibilityLabel(L10n.tr("Delete rule"))
                                         }
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 5)
@@ -251,7 +253,7 @@ public struct PrivacySettingsTab: View {
                         
                         // Sub-section C: Security & Access Behavior
                         VStack(alignment: .leading, spacing: 10) {
-                            Toggle("Require Touch ID / Password to Reveal Secrets", isOn: $requireAuthToReveal)
+                            Toggle(L10n.tr("Require Touch ID / Password to Reveal Secrets"), isOn: $requireAuthToReveal)
                                 .font(.system(size: 13))
                                 .onChange(of: requireAuthToReveal) { _, val in
                                     store.saveSetting(key: "requireAuthToReveal", value: val ? "true" : "false")
@@ -259,18 +261,18 @@ public struct PrivacySettingsTab: View {
                             
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Auto-Purge Sensitive Clips")
+                                    Text(L10n.tr("Auto-Purge Sensitive Clips"))
                                         .font(.system(size: 13))
-                                    Text("Permanently removes unpinned sensitive clips from history after time.")
+                                    Text(L10n.tr("Permanently removes unpinned sensitive clips from history after time."))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
                                 Spacer()
                                 Picker("", selection: $autoPurgeHours) {
-                                    Text("Never").tag("0")
-                                    Text("After 1 Hour").tag("1")
-                                    Text("After 24 Hours").tag("24")
-                                    Text("After 7 Days").tag("168")
+                                    Text(L10n.tr("Never")).tag("0")
+                                    Text(L10n.tr("After 1 Hour")).tag("1")
+                                    Text(L10n.tr("After 24 Hours")).tag("24")
+                                    Text(L10n.tr("After 7 Days")).tag("168")
                                 }
                                 .labelsHidden()
                                 .frame(width: 150)
@@ -289,37 +291,37 @@ public struct PrivacySettingsTab: View {
             }
             
             // 4. Security Filters
-            Section("Security Filters") {
+            Section(L10n.tr("Security Filters")) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Toggle("Ignore Password Managers", isOn: $ignorePasswords)
+                    Toggle(L10n.tr("Ignore Password Managers"), isOn: $ignorePasswords)
                         .onChange(of: ignorePasswords) { _, val in
                             store.saveSetting(key: "ignorePasswords", value: val ? "true" : "false")
                         }
-                    Text("Automatically ignores clips copied from 1Password, Bitwarden, Keychain Access, KeePass, LastPass, etc.")
+                    Text(L10n.tr("Automatically ignores clips copied from 1Password, Bitwarden, Keychain Access, KeePass, LastPass, etc."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 
                 VStack(alignment: .leading, spacing: 6) {
-                    Toggle("Ignore Transient / Concealed Data", isOn: $ignoreTransient)
+                    Toggle(L10n.tr("Ignore Transient / Concealed Data"), isOn: $ignoreTransient)
                         .onChange(of: ignoreTransient) { _, val in
                             store.saveSetting(key: "ignoreTransient", value: val ? "true" : "false")
                         }
-                    Text("Ignores clipboard data marked with macOS transient or concealed privacy flags.")
+                    Text(L10n.tr("Ignores clipboard data marked with macOS transient or concealed privacy flags."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
             
             // 5. Ignored Applications
-            Section("Ignored Applications") {
+            Section(L10n.tr("Ignored Applications")) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("LibrePaste will ignore clipboard copies when any of these apps is active:")
+                    Text(L10n.tr("LibrePaste will ignore clipboard copies when any of these apps is active:"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     
                     if ignoredApps.isEmpty {
-                        Text("No applications currently ignored.")
+                        Text(L10n.tr("No applications currently ignored."))
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                             .padding(.vertical, 4)
@@ -355,13 +357,13 @@ public struct PrivacySettingsTab: View {
                                         .foregroundStyle(.red)
                                 }
                                 .buttonStyle(.plain)
-                                .help("Remove ignored application")
+                                .help(L10n.tr("Remove ignored application"))
                             }
                             .padding(.vertical, 2)
                         }
                     }
                     
-                    Button("Add Application...") {
+                    Button(L10n.tr("Add Application...")) {
                         selectAppToIgnore()
                     }
                     .buttonStyle(.bordered)
@@ -419,7 +421,7 @@ public struct PrivacySettingsTab: View {
         if !newValue && SecurityManager.shared.isEnabled {
             // Turning OFF App Lock requires biometric/password authentication confirmation
             Task { @MainActor in
-                let success = await SecurityManager.shared.authenticate(reason: "Authenticate to turn off App Lock")
+                let success = await SecurityManager.shared.authenticate(reason: L10n.tr("Authenticate to turn off App Lock"))
                 if success {
                     updateLockSettings()
                 } else {
@@ -442,7 +444,7 @@ public struct PrivacySettingsTab: View {
     
     private func selectAppToIgnore() {
         let panel = NSOpenPanel()
-        panel.title = "Select Application to Ignore"
+        panel.title = L10n.tr("Select Application to Ignore")
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false

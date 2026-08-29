@@ -28,12 +28,12 @@ public final class SecurityManager: @unchecked Sendable {
         
         public var displayName: String {
             switch self {
-            case .immediately: return "Immediately"
-            case .oneMinute: return "1 Minute"
-            case .fiveMinutes: return "5 Minutes"
-            case .fifteenMinutes: return "15 Minutes"
-            case .thirtyMinutes: return "30 Minutes"
-            case .never: return "Never (Manual Only)"
+            case .immediately: return L10n.tr("Immediately")
+            case .oneMinute: return L10n.tr("1 minute")
+            case .fiveMinutes: return L10n.tr("5 minutes")
+            case .fifteenMinutes: return L10n.tr("15 minutes")
+            case .thirtyMinutes: return L10n.tr("30 minutes")
+            case .never: return L10n.tr("Never")
             }
         }
         
@@ -57,11 +57,11 @@ public final class SecurityManager: @unchecked Sendable {
         public var title: String {
             switch self {
             case .touchID:
-                return "Touch ID & Password"
+                return L10n.tr("Touch ID / Password")
             case .appleWatchOrPassword:
-                return "System Password"
+                return L10n.tr("Passcode / Password")
             case .none:
-                return "Not Available"
+                return L10n.tr("Universal")
             }
         }
         
@@ -210,10 +210,12 @@ public final class SecurityManager: @unchecked Sendable {
     // MARK: - Authentication
     
     @MainActor
-    public func authenticate(reason: String = "Unlock LibrePaste clipboard history") async -> Bool {
+    public func authenticate(reason: String? = nil) async -> Bool {
         guard !isEvaluatingAuth else {
             return false
         }
+        
+        let localizedReason = reason ?? L10n.tr("Unlock LibrePaste clipboard history")
         
         isEvaluatingAuth = true
         isAuthenticating = true
@@ -222,7 +224,7 @@ public final class SecurityManager: @unchecked Sendable {
         let result = await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 let context = LAContext()
-                context.localizedReason = reason
+                context.localizedReason = localizedReason
                 
                 var authError: NSError?
                 guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &authError) else {
@@ -230,7 +232,7 @@ public final class SecurityManager: @unchecked Sendable {
                     return
                 }
                 
-                context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, error in
+                context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: localizedReason) { success, error in
                     if success {
                         continuation.resume(returning: .success(true))
                     } else if let error = error {
@@ -267,18 +269,18 @@ public final class SecurityManager: @unchecked Sendable {
                 // User intentionally cancelled the prompt
                 authErrorMessage = nil
             case .userFallback:
-                authErrorMessage = "Fallback selected."
+                authErrorMessage = L10n.tr("Fallback selected.")
             case .biometryLockout:
-                authErrorMessage = "Touch ID locked out. Please use Mac password."
+                authErrorMessage = L10n.tr("Touch ID locked out. Please use Mac password.")
             case .passcodeNotSet:
-                authErrorMessage = "Device passcode / password is not set."
+                authErrorMessage = L10n.tr("Device passcode / password is not set.")
             default:
-                authErrorMessage = "Authentication failed. Click to try again."
+                authErrorMessage = L10n.tr("Authentication failed. Click to try again.")
             }
             return false
             
         case .failure, .success:
-            authErrorMessage = "Authentication failed. Click to try again."
+            authErrorMessage = L10n.tr("Authentication failed. Click to try again.")
             return false
         }
     }
