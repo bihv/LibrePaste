@@ -43,8 +43,26 @@ public final class FloatingPanel: NSPanel {
             return
         }
         
+        // Do not hide if this panel is currently presenting an attached sheet
+        if self.attachedSheet != nil || !self.sheets.isEmpty {
+            return
+        }
+        
+        // Do not hide if any visible window is a sheet or child of this panel
+        let hasAttachedSheet = NSApp.windows.contains { win in
+            win.isVisible && (win.sheetParent == self || win.parent == self || (win.isSheet && win.sheetParent == nil))
+        }
+        if hasAttachedSheet {
+            return
+        }
+        
+        // Do not hide if key window belongs to this panel
+        if let keyWin = NSApp.keyWindow, (keyWin == self || keyWin.sheetParent == self || keyWin.parent == self || self.childWindows?.contains(keyWin) == true) {
+            return
+        }
+        
         let isAnotherAppWindowKey = NSApp.windows.contains { win in
-            win != self && win.isVisible && (win.isKeyWindow || win.isMainWindow) && !(win is FloatingPanel) && !win.className.contains("StatusBar")
+            win != self && win.isVisible && (win.isKeyWindow || win.isMainWindow) && !(win is FloatingPanel) && !win.className.contains("StatusBar") && win.sheetParent != self
         }
         hidePanel(deactivateApp: !isAnotherAppWindowKey)
     }

@@ -242,8 +242,13 @@ public final class ClipboardStore {
         reloadPinboards()
     }
     
-    public func updateClip(id: Int64, content: String, preview: String, rtf: String? = nil) {
-        _ = DatabaseManager.shared.updateClip(id: id, content: content, preview: preview, rtf: rtf)
+    public func renameClip(id: Int64, title: String?) {
+        _ = DatabaseManager.shared.renameClip(id: id, title: title)
+        reloadClips()
+    }
+    
+    public func updateClip(id: Int64, content: String, preview: String, rtf: String? = nil, title: String? = nil) {
+        _ = DatabaseManager.shared.updateClip(id: id, content: content, preview: preview, rtf: rtf, title: title)
         reloadClips()
     }
     
@@ -379,4 +384,5 @@ extension Notification.Name {
     public static let displayModeChanged = Notification.Name("displayModeChanged")
     public static let appearanceChanged = Notification.Name("appearanceChanged")
     public static let languageChanged = Notification.Name("LibrePasteLanguageChanged")
+    public static let openRenameModal = Notification.Name("openRenameModal")
 }

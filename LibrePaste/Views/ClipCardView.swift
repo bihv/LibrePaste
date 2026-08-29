@@ -16,6 +16,7 @@ public enum ClipAction {
     case toggleReveal
     case delete
     case edit
+    case rename
     case preview
     case addToPinboard(Int64?)
     case enqueue
@@ -61,6 +62,7 @@ public struct ClipCardView: View {
         onTogglePin: @escaping () -> Void,
         onDelete: @escaping () -> Void,
         onEdit: @escaping () -> Void,
+        onRename: (() -> Void)? = nil,
         onPreview: @escaping () -> Void,
         onAddToPinboard: @escaping (Int64?) -> Void,
         onEnqueue: (() -> Void)? = nil,
@@ -80,6 +82,7 @@ public struct ClipCardView: View {
             case .toggleReveal: break
             case .delete: onDelete()
             case .edit: onEdit()
+            case .rename: onRename?()
             case .preview: onPreview()
             case .addToPinboard(let pId): onAddToPinboard(pId)
             case .enqueue: onEnqueue?()
@@ -332,6 +335,20 @@ public struct ClipCardView: View {
                     .foregroundStyle(.tertiary)
             }
             
+            if let customTitle = clip.title, !customTitle.isEmpty {
+                HStack(spacing: 3) {
+                    Image(systemName: clip.type.systemImage)
+                        .font(.system(size: 8))
+                    Text(clip.type.displayName)
+                        .font(.system(size: 9, weight: .medium))
+                }
+                .foregroundStyle(.tertiary)
+                .padding(.horizontal, 4.5)
+                .padding(.vertical, 1.5)
+                .background(Color.primary.opacity(0.04))
+                .clipShape(RoundedRectangle(cornerRadius: 3.5, style: .continuous))
+            }
+            
             Spacer()
             
             if let currentPinboard = pinboards.first(where: { $0.id == clip.pinboardId }) {
@@ -368,6 +385,10 @@ public struct ClipCardView: View {
         
         Button(action: { onAction(.preview) }) {
             Label(L10n.tr("Quick Look Preview"), systemImage: "eye")
+        }
+        
+        Button(action: { onAction(.rename) }) {
+            Label(L10n.tr("Rename..."), systemImage: "pencil.line")
         }
         
         if clip.type != .image {
@@ -559,6 +580,9 @@ private struct ClipCardHeaderView: View {
     }
     
     private var clipDisplayTypeTitle: String {
+        if let customTitle = clip.title, !customTitle.isEmpty {
+            return customTitle
+        }
         if isColor {
             return L10n.tr("Color")
         }

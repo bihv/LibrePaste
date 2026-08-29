@@ -15,11 +15,12 @@ public enum EditorMode: String, CaseIterable {
 
 public struct EditClipView: View {
     public let clip: ClipRecord
-    public let onSave: (String, String, String?) -> Void
+    public let onSave: (String, String, String?, String?) -> Void
     public let onCancel: () -> Void
     
     @Environment(\.colorScheme) private var colorScheme
     @State private var mode: EditorMode
+    @State private var editedTitle: String
     @State private var editedRawContent: String
     @State private var currentAttributedString: NSAttributedString
     @StateObject private var richController = RichTextEditorController()
@@ -29,12 +30,13 @@ public struct EditClipView: View {
     
     public init(
         clip: ClipRecord,
-        onSave: @escaping (String, String, String?) -> Void,
+        onSave: @escaping (String, String, String?, String?) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.clip = clip
         self.onSave = onSave
         self.onCancel = onCancel
+        self._editedTitle = State(initialValue: clip.title ?? "")
         self._editedRawContent = State(initialValue: clip.content)
         
         let isRich = clip.type == .richtext || clip.rtf != nil || (clip.content.contains("<") && clip.content.contains(">"))
@@ -52,7 +54,20 @@ public struct EditClipView: View {
         self._currentAttributedString = State(initialValue: parsed)
     }
     
-    // Convenience init for backwards compatibility
+    // Convenience init for 3-parameter onSave
+    public init(
+        clip: ClipRecord,
+        onSave: @escaping (String, String, String?) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        self.init(
+            clip: clip,
+            onSave: { content, preview, rtf, _ in onSave(content, preview, rtf) },
+            onCancel: onCancel
+        )
+    }
+    
+    // Convenience init for 2-parameter onSave
     public init(
         clip: ClipRecord,
         onSave: @escaping (String, String) -> Void,
@@ -60,7 +75,7 @@ public struct EditClipView: View {
     ) {
         self.init(
             clip: clip,
-            onSave: { content, preview, _ in onSave(content, preview) },
+            onSave: { content, preview, _, _ in onSave(content, preview) },
             onCancel: onCancel
         )
     }
@@ -93,6 +108,11 @@ public struct EditClipView: View {
         VStack(spacing: 0) {
             // Header Bar
             headerBar
+            
+            Divider()
+            
+            // Title / Name Bar
+            titleBar
             
             Divider()
             
@@ -255,6 +275,40 @@ public struct EditClipView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
+    }
+    
+    // MARK: - Title Bar
+    
+    private var titleBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "pencil.line")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.secondary)
+            
+            TextField(L10n.tr("Custom Clip Name (optional)"), text: $editedTitle)
+                .textFieldStyle(.plain)
+                .font(.system(size: 12.5, weight: .medium))
+                .onChange(of: editedTitle) { _, _ in
+                    isModified = true
+                }
+            
+            if !editedTitle.isEmpty {
+                Button(action: {
+                    editedTitle = ""
+                    isModified = true
+                }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help(L10n.tr("Clear Name"))
+                .accessibilityLabel(L10n.tr("Clear Name"))
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 7)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.35))
     }
     
     // MARK: - Formatting Toolbar (WYSIWYG)
@@ -489,6 +543,7 @@ public struct EditClipView: View {
     }
     
     private func resetToOriginal() {
+        editedTitle = clip.title ?? ""
         editedRawContent = clip.content
         let isDark = (colorScheme == .dark)
         let parsed = RichTextHelper.parse(content: clip.content, rtf: clip.rtf, isDark: isDark)
@@ -505,15 +560,18 @@ public struct EditClipView: View {
     }
     
     private func handleSave() {
+        let cleanTitle = editedTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let finalTitle = cleanTitle.isEmpty ? nil : cleanTitle
+        
         if isRichText && mode == .wysiwyg {
             let html = richController.exportHTML()
             let rtf = richController.exportRTF()
             let plain = richController.exportPlainText().trimmingCharacters(in: .whitespacesAndNewlines)
             let preview = plain
-            onSave(html.isEmpty ? plain : html, preview, rtf)
+            onSave(html.isEmpty ? plain : html, preview, rtf, finalTitle)
         } else {
             let preview = isRichText ? RichTextHelper.stripHTML(editedRawContent) : editedRawContent.trimmingCharacters(in: .whitespacesAndNewlines)
-            onSave(editedRawContent, preview, nil)
+            onSave(editedRawContent, preview, nil, finalTitle)
         }
     }
     

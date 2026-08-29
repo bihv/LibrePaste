@@ -179,6 +179,23 @@ public struct ClipCompactRowView: View {
                         .font(.system(size: 11.5, weight: .medium, design: .monospaced))
                         .foregroundStyle(.secondary)
                 }
+            } else if let customTitle = clip.title, !customTitle.isEmpty {
+                HStack(spacing: 5) {
+                    Text(customTitle)
+                        .font(.system(size: 13, weight: isSelected ? .bold : .semibold))
+                        .foregroundStyle(isSelected ? .primary : Color.primary)
+                        .lineLimit(1)
+                    
+                    Text("•")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.tertiary)
+                    
+                    Text(displayPreviewText)
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
             } else if let colorInfo = detectedColor {
                 HStack(spacing: 6) {
                     // Mini Color Swatch Chip with Checkerboard background
@@ -249,10 +266,26 @@ public struct ClipCompactRowView: View {
                 .frame(width: 24, height: 24)
                 .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
             
-            Text(clip.preview.isEmpty ? L10n.tr("Image") : clip.preview)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
+            if let customTitle = clip.title, !customTitle.isEmpty {
+                Text(customTitle)
+                    .font(.system(size: 12, weight: isSelected ? .bold : .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                
+                Text("•")
+                    .font(.system(size: 8))
+                    .foregroundStyle(.tertiary)
+                
+                Text(clip.preview.isEmpty ? L10n.tr("Image") : clip.preview)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            } else {
+                Text(clip.preview.isEmpty ? L10n.tr("Image") : clip.preview)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+            }
         }
     }
     
@@ -457,6 +490,10 @@ public struct ClipCompactRowView: View {
         
         Button(action: { onAction(.preview) }) {
             Label(L10n.tr("Quick Look Preview"), systemImage: "eye")
+        }
+        
+        Button(action: { onAction(.rename) }) {
+            Label(L10n.tr("Rename..."), systemImage: "pencil.line")
         }
         
         if clip.type != .image {

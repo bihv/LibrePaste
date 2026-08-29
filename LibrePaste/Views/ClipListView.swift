@@ -34,6 +34,7 @@ public struct ClipListView: View {
     public let onToggleReveal: ((ClipRecord) -> Void)?
     public let onDelete: (Int64) -> Void
     public let onEdit: (ClipRecord) -> Void
+    public let onRename: ((ClipRecord) -> Void)?
     public let onPreview: (ClipRecord) -> Void
     public let onAddToPinboard: (Int64, Int64?) -> Void
     public let onEnqueue: ((ClipRecord) -> Void)?
@@ -56,6 +57,7 @@ public struct ClipListView: View {
         onToggleReveal: ((ClipRecord) -> Void)? = nil,
         onDelete: @escaping (Int64) -> Void,
         onEdit: @escaping (ClipRecord) -> Void,
+        onRename: ((ClipRecord) -> Void)? = nil,
         onPreview: @escaping (ClipRecord) -> Void,
         onAddToPinboard: @escaping (Int64, Int64?) -> Void,
         onEnqueue: ((ClipRecord) -> Void)? = nil,
@@ -77,6 +79,7 @@ public struct ClipListView: View {
         self.onToggleReveal = onToggleReveal
         self.onDelete = onDelete
         self.onEdit = onEdit
+        self.onRename = onRename
         self.onPreview = onPreview
         self.onAddToPinboard = onAddToPinboard
         self.onEnqueue = onEnqueue
@@ -177,6 +180,8 @@ public struct ClipListView: View {
             onDelete(clip.id)
         case .edit:
             onEdit(clip)
+        case .rename:
+            onRename?(clip)
         case .preview:
             onPreview(clip)
         case .addToPinboard(let pinboardId):

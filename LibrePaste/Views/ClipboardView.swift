@@ -14,6 +14,7 @@ public struct ClipboardView: View {
     @State private var isSidebarCollapsed: Bool = true
     @State private var scrollTarget: ScrollTarget? = nil
     @State private var keyEventMonitor: Any? = nil
+    @State private var renamingClip: ClipRecord? = nil
     
     public init(store: ClipboardStore) {
         self.store = store
@@ -118,6 +119,9 @@ public struct ClipboardView: View {
                             onEdit: { clip in
                                 NotificationCenter.default.post(name: .openEditWindow, object: clip)
                             },
+                            onRename: { clip in
+                                renamingClip = clip
+                            },
                             onPreview: { clip in
                                 NotificationCenter.default.post(name: .openPreviewWindow, object: clip)
                             },
@@ -183,6 +187,34 @@ public struct ClipboardView: View {
         .onChange(of: store.query) {
             scrollTarget = ScrollTarget(index: 0)
         }
+        .sheet(item: $renamingClip) { clip in
+            RenameClipSheet(
+                clip: clip,
+                onSave: { newTitle in
+                    store.renameClip(id: clip.id, title: newTitle)
+                    renamingClip = nil
+                },
+                onCancel: {
+                    renamingClip = nil
+                }
+            )
+            .environment(\.locale, store.appLanguage.locale)
+        }
+        .onChange(of: renamingClip) { oldVal, newVal in
+            if oldVal != nil && newVal == nil {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    if let panel = NSApp.keyWindow as? FloatingPanel ?? AppDelegate.shared?.floatingPanel {
+                        panel.makeKeyAndOrderFront(nil)
+                        panel.makeFirstResponder(panel.contentView)
+                    }
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openRenameModal)) { notification in
+            if let clip = notification.object as? ClipRecord {
+                renamingClip = clip
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .panelDidShow)) { _ in
             store.isSearchFocused = false
             if store.windowPresentationMode == .menuBarPopover || store.windowPresentationMode == .atCursor || store.clipLayoutStyle == .compactList {
@@ -205,7 +237,8 @@ public struct ClipboardView: View {
     // MARK: - Keyboard Handling
     
     private func handleGlobalKeyEvent(_ event: NSEvent) -> NSEvent? {
-        guard let window = event.window as? FloatingPanel ?? NSApp.keyWindow as? FloatingPanel,
+        guard renamingClip == nil,
+              let window = event.window as? FloatingPanel ?? NSApp.keyWindow as? FloatingPanel,
               window.isVisible,
               window.alphaValue > 0,
               window.attachedSheet == nil else {
@@ -336,7 +369,16 @@ public struct ClipboardView: View {
             }
         }
         
-        // 11. Command + Delete (keyCode 51)
+        // 11. 'R' / 'r' (keyCode 15) -> Rename Clip
+        if !isCommand && (chars == "r" || chars == "R" || event.keyCode == 15) {
+            if store.activeIndex >= 0 && store.activeIndex < store.filteredClips.count {
+                let clip = store.filteredClips[store.activeIndex]
+                renamingClip = clip
+                return nil
+            }
+        }
+        
+        // 12. Command + Delete (keyCode 51)
         if isCommand && event.keyCode == 51 {
             if store.activeIndex >= 0 && store.activeIndex < store.filteredClips.count {
                 let clip = store.filteredClips[store.activeIndex]
@@ -704,6 +746,7 @@ public struct ClipboardView: View {
             shortcutHint("↵", "Paste")
             shortcutHint("⌥↵", "Plain Text")
             shortcutHint("Space", "Preview")
+            shortcutHint("R", "Rename Clip")
             shortcutHint("Q", "Queue")
             shortcutHint("⌘F", "Search")
             shortcutHint("E", "Edit")

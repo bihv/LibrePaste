@@ -1820,6 +1820,23 @@
         }
       }
     },
+    "Clear Name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear Name"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xóa tên"
+          }
+        }
+      }
+    },
     "Clear Queue" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2263,6 +2280,23 @@
         }
       }
     },
+    "Custom Clip Name (optional)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom Clip Name (optional)"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tên clip tùy chỉnh (tùy chọn)"
+          }
+        }
+      }
+    },
     "Custom Masking Rules" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2276,6 +2310,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Quy tắc che tùy chỉnh"
+          }
+        }
+      }
+    },
+    "Custom Name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom Name"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tên tùy chỉnh"
           }
         }
       }
@@ -2786,6 +2837,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Đã bật"
+          }
+        }
+      }
+    },
+    "Enter clip name..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter clip name..."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhập tên clip..."
           }
         }
       }
@@ -5492,6 +5560,57 @@
         }
       }
     },
+    "Rename Clip" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rename Clip"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đổi tên Clip"
+          }
+        }
+      }
+    },
+    "Rename clip (R)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rename clip (R)"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đổi tên clip (R)"
+          }
+        }
+      }
+    },
+    "Rename..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rename..."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đổi tên..."
+          }
+        }
+      }
+    },
     "Report an Issue" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5607,6 +5726,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Đặt lại phím tắt về mặc định (%@)"
+          }
+        }
+      }
+    },
+    "Reset to Default" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset to Default"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đặt lại mặc định"
           }
         }
       }

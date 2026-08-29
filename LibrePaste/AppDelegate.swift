@@ -15,7 +15,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     
     public var statusItem: NSStatusItem?
     private var statusMenu: NSMenu?
-    private var floatingPanel: FloatingPanel?
+    public private(set) var floatingPanel: FloatingPanel?
     private var settingsWindow: NSWindow?
     private var previewWindow: NSWindow?
     private var currentPreviewClip: ClipRecord?
@@ -577,9 +577,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         
         let editView = EditClipView(
             clip: clip,
-            onSave: { [weak self] newContent, newPreview, newRtf in
+            onSave: { [weak self] newContent, newPreview, newRtf, newTitle in
                 guard let self = self else { return }
-                self.store.updateClip(id: clip.id, content: newContent, preview: newPreview, rtf: newRtf)
+                self.store.updateClip(id: clip.id, content: newContent, preview: newPreview, rtf: newRtf, title: newTitle)
                 self.closeEditWindow()
             },
             onCancel: { [weak self] in
@@ -589,8 +589,15 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         
         let hostingView = NSHostingView(rootView: editView)
         
+        let windowTitle: String
+        if let customTitle = clip.title, !customTitle.isEmpty {
+            windowTitle = L10n.tr("LibrePaste Edit - %@", customTitle)
+        } else {
+            windowTitle = L10n.tr("LibrePaste Edit - %@", clip.type.displayName)
+        }
+        
         if let window = editWindow {
-            window.title = L10n.tr("LibrePaste Edit - %@", clip.type.displayName)
+            window.title = windowTitle
             window.contentView = hostingView
             if window.isMiniaturized {
                 window.deminiaturize(nil)
@@ -607,7 +614,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = L10n.tr("LibrePaste Edit - %@", clip.type.displayName)
+        window.title = windowTitle
         window.minSize = NSSize(width: 500, height: 380)
         window.center()
         window.contentView = hostingView

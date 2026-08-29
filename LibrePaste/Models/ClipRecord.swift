@@ -245,6 +245,7 @@ nonisolated public struct ClipRecord: Identifiable, Codable, Equatable, Hashable
     public var isSensitive: Bool
     public var sensitiveType: SensitiveDataType?
     public var customRuleName: String?
+    public var title: String?
     
     public init(
         id: Int64 = 0,
@@ -261,7 +262,8 @@ nonisolated public struct ClipRecord: Identifiable, Codable, Equatable, Hashable
         pinboardId: Int64? = nil,
         isSensitive: Bool = false,
         sensitiveType: SensitiveDataType? = nil,
-        customRuleName: String? = nil
+        customRuleName: String? = nil,
+        title: String? = nil
     ) {
         self.id = id
         self.type = type
@@ -278,6 +280,7 @@ nonisolated public struct ClipRecord: Identifiable, Codable, Equatable, Hashable
         self.isSensitive = isSensitive
         self.sensitiveType = sensitiveType
         self.customRuleName = customRuleName
+        self.title = title
     }
     
     public var createdDate: Date {

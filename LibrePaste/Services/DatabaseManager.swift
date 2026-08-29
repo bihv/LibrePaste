@@ -91,6 +91,7 @@ public final class DatabaseManager: @unchecked Sendable {
             is_sensitive INTEGER NOT NULL DEFAULT 0,
             sensitive_type TEXT,
             custom_rule_name TEXT,
+            title TEXT,
             FOREIGN KEY (pinboard_id) REFERENCES pinboards(id) ON DELETE SET NULL
         );
         
@@ -110,6 +111,7 @@ public final class DatabaseManager: @unchecked Sendable {
         _ = executeSimple("ALTER TABLE clips ADD COLUMN is_sensitive INTEGER NOT NULL DEFAULT 0;")
         _ = executeSimple("ALTER TABLE clips ADD COLUMN sensitive_type TEXT;")
         _ = executeSimple("ALTER TABLE clips ADD COLUMN custom_rule_name TEXT;")
+        _ = executeSimple("ALTER TABLE clips ADD COLUMN title TEXT;")
         
         // Default settings
         let defaults: [String: String] = [
@@ -201,7 +203,7 @@ public final class DatabaseManager: @unchecked Sendable {
             let now = Date().timeIntervalSince1970 * 1000
             
             // Check existing by hash
-            let checkSQL = "SELECT id, type, content, rtf, image_path, preview, hash, pinned, created_at, source_name, source_icon, pinboard_id, is_sensitive, sensitive_type, custom_rule_name FROM clips WHERE hash = ?;"
+            let checkSQL = "SELECT id, type, content, rtf, image_path, preview, hash, pinned, created_at, source_name, source_icon, pinboard_id, is_sensitive, sensitive_type, custom_rule_name, title FROM clips WHERE hash = ?;"
             var stmt: OpaquePointer?
             var existing: ClipRecord?
             
@@ -255,8 +257,8 @@ public final class DatabaseManager: @unchecked Sendable {
             
             // Insert new
             let insertSQL = """
-            INSERT INTO clips (type, content, rtf, image_path, preview, hash, pinned, created_at, source_name, source_icon, pinboard_id, is_sensitive, sensitive_type, custom_rule_name)
-            VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?);
+            INSERT INTO clips (type, content, rtf, image_path, preview, hash, pinned, created_at, source_name, source_icon, pinboard_id, is_sensitive, sensitive_type, custom_rule_name, title)
+            VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?);
             """
             var insertStmt: OpaquePointer?
             var newId: Int64 = 0
@@ -299,6 +301,11 @@ public final class DatabaseManager: @unchecked Sendable {
                 } else {
                     sqlite3_bind_null(insertStmt, 13)
                 }
+                if let title = clip.title {
+                    sqlite3_bind_text(insertStmt, 14, (title as NSString).utf8String, -1, nil)
+                } else {
+                    sqlite3_bind_null(insertStmt, 14)
+                }
                 
                 if sqlite3_step(insertStmt) == SQLITE_DONE {
                     newId = sqlite3_last_insert_rowid(db)
@@ -317,7 +324,7 @@ public final class DatabaseManager: @unchecked Sendable {
     
     public func listClips(limit: Int = 200) -> [ClipRecord] {
         return queue.sync {
-            let sql = "SELECT id, type, content, rtf, image_path, preview, hash, pinned, created_at, source_name, source_icon, pinboard_id, is_sensitive, sensitive_type, custom_rule_name FROM clips ORDER BY pinned DESC, created_at DESC LIMIT ?;"
+            let sql = "SELECT id, type, content, rtf, image_path, preview, hash, pinned, created_at, source_name, source_icon, pinboard_id, is_sensitive, sensitive_type, custom_rule_name, title FROM clips ORDER BY pinned DESC, created_at DESC LIMIT ?;"
             var stmt: OpaquePointer?
             var result: [ClipRecord] = []
             
@@ -340,7 +347,7 @@ public final class DatabaseManager: @unchecked Sendable {
             guard !trimmed.isEmpty else { return [] }
             
             let sql = """
-            SELECT id, type, content, rtf, image_path, preview, hash, pinned, created_at, source_name, source_icon, pinboard_id, is_sensitive, sensitive_type, custom_rule_name
+            SELECT id, type, content, rtf, image_path, preview, hash, pinned, created_at, source_name, source_icon, pinboard_id, is_sensitive, sensitive_type, custom_rule_name, title
             FROM clips
             ORDER BY pinned DESC, created_at DESC;
             """
@@ -350,7 +357,8 @@ public final class DatabaseManager: @unchecked Sendable {
             if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK, let stmt = stmt {
                 while sqlite3_step(stmt) == SQLITE_ROW {
                     if let clip = extractClip(from: stmt) {
-                        if clip.content.localizedStandardContains(trimmed) ||
+                        if (clip.title?.localizedStandardContains(trimmed) == true) ||
+                           clip.content.localizedStandardContains(trimmed) ||
                            clip.preview.localizedStandardContains(trimmed) ||
                            (clip.sourceName?.localizedStandardContains(trimmed) == true) {
                             result.append(clip)
@@ -368,7 +376,7 @@ public final class DatabaseManager: @unchecked Sendable {
     
     public func getClip(id: Int64) -> ClipRecord? {
         return queue.sync {
-            let sql = "SELECT id, type, content, rtf, image_path, preview, hash, pinned, created_at, source_name, source_icon, pinboard_id, is_sensitive, sensitive_type, custom_rule_name FROM clips WHERE id = ?;"
+            let sql = "SELECT id, type, content, rtf, image_path, preview, hash, pinned, created_at, source_name, source_icon, pinboard_id, is_sensitive, sensitive_type, custom_rule_name, title FROM clips WHERE id = ?;"
             var stmt: OpaquePointer?
             var result: ClipRecord?
             
@@ -423,7 +431,37 @@ public final class DatabaseManager: @unchecked Sendable {
         }
     }
     
-    public func updateClip(id: Int64, content: String, preview: String, rtf: String? = nil) -> ClipRecord? {
+    public func renameClip(id: Int64, title: String?) -> ClipRecord? {
+        return queue.sync {
+            let sql = "UPDATE clips SET title = ? WHERE id = ?;"
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+                let trimmed = title?.trimmingCharacters(in: .whitespacesAndNewlines)
+                if let trimmed = trimmed, !trimmed.isEmpty {
+                    sqlite3_bind_text(stmt, 1, (trimmed as NSString).utf8String, -1, nil)
+                } else {
+                    sqlite3_bind_null(stmt, 1)
+                }
+                sqlite3_bind_int64(stmt, 2, id)
+                sqlite3_step(stmt)
+            }
+            sqlite3_finalize(stmt)
+            
+            let selectSQL = "SELECT id, type, content, rtf, image_path, preview, hash, pinned, created_at, source_name, source_icon, pinboard_id, is_sensitive, sensitive_type, custom_rule_name, title FROM clips WHERE id = ?;"
+            var selectStmt: OpaquePointer?
+            var result: ClipRecord?
+            if sqlite3_prepare_v2(db, selectSQL, -1, &selectStmt, nil) == SQLITE_OK, let selectStmt = selectStmt {
+                sqlite3_bind_int64(selectStmt, 1, id)
+                if sqlite3_step(selectStmt) == SQLITE_ROW {
+                    result = extractClip(from: selectStmt)
+                }
+            }
+            sqlite3_finalize(selectStmt)
+            return result
+        }
+    }
+    
+    public func updateClip(id: Int64, content: String, preview: String, rtf: String? = nil, title: String? = nil) -> ClipRecord? {
         let hashSource = (content.contains("<") && content.contains(">")) ? content : (!content.isEmpty ? content : (rtf ?? ""))
         let newHash = HashHelper.sha256(hashSource)
         
@@ -433,9 +471,10 @@ public final class DatabaseManager: @unchecked Sendable {
         let sensitiveType = matchResult?.type
         let customRuleName = matchResult?.customRuleName
         let effectivePreview = matchResult?.maskedPreview ?? preview
+        let cleanTitle = title?.trimmingCharacters(in: .whitespacesAndNewlines)
         
         return queue.sync {
-            let sql = "UPDATE clips SET content = ?, preview = ?, rtf = ?, hash = ?, is_sensitive = ?, sensitive_type = ?, custom_rule_name = ? WHERE id = ?;"
+            let sql = "UPDATE clips SET content = ?, preview = ?, rtf = ?, hash = ?, is_sensitive = ?, sensitive_type = ?, custom_rule_name = ?, title = ? WHERE id = ?;"
             var stmt: OpaquePointer?
             if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
                 bindEncryptedRequiredBlob(stmt: stmt, index: 1, text: content)
@@ -453,11 +492,16 @@ public final class DatabaseManager: @unchecked Sendable {
                 } else {
                     sqlite3_bind_null(stmt, 7)
                 }
-                sqlite3_bind_int64(stmt, 8, id)
+                if let cleanTitle = cleanTitle, !cleanTitle.isEmpty {
+                    sqlite3_bind_text(stmt, 8, (cleanTitle as NSString).utf8String, -1, nil)
+                } else {
+                    sqlite3_bind_null(stmt, 8)
+                }
+                sqlite3_bind_int64(stmt, 9, id)
                 let stepRes = sqlite3_step(stmt)
                 if stepRes != SQLITE_DONE {
                     // Fallback to update without changing hash if another clip has this unique hash
-                    let fallbackSql = "UPDATE clips SET content = ?, preview = ?, rtf = ?, is_sensitive = ?, sensitive_type = ?, custom_rule_name = ? WHERE id = ?;"
+                    let fallbackSql = "UPDATE clips SET content = ?, preview = ?, rtf = ?, is_sensitive = ?, sensitive_type = ?, custom_rule_name = ?, title = ? WHERE id = ?;"
                     var fallbackStmt: OpaquePointer?
                     if sqlite3_prepare_v2(db, fallbackSql, -1, &fallbackStmt, nil) == SQLITE_OK {
                         bindEncryptedRequiredBlob(stmt: fallbackStmt, index: 1, text: content)
@@ -474,7 +518,12 @@ public final class DatabaseManager: @unchecked Sendable {
                         } else {
                             sqlite3_bind_null(fallbackStmt, 6)
                         }
-                        sqlite3_bind_int64(fallbackStmt, 7, id)
+                        if let cleanTitle = cleanTitle, !cleanTitle.isEmpty {
+                            sqlite3_bind_text(fallbackStmt, 7, (cleanTitle as NSString).utf8String, -1, nil)
+                        } else {
+                            sqlite3_bind_null(fallbackStmt, 7)
+                        }
+                        sqlite3_bind_int64(fallbackStmt, 8, id)
                         sqlite3_step(fallbackStmt)
                     }
                     sqlite3_finalize(fallbackStmt)
@@ -482,7 +531,7 @@ public final class DatabaseManager: @unchecked Sendable {
             }
             sqlite3_finalize(stmt)
             
-            let selectSQL = "SELECT id, type, content, rtf, image_path, preview, hash, pinned, created_at, source_name, source_icon, pinboard_id, is_sensitive, sensitive_type, custom_rule_name FROM clips WHERE id = ?;"
+            let selectSQL = "SELECT id, type, content, rtf, image_path, preview, hash, pinned, created_at, source_name, source_icon, pinboard_id, is_sensitive, sensitive_type, custom_rule_name, title FROM clips WHERE id = ?;"
             var selectStmt: OpaquePointer?
             var result: ClipRecord?
             if sqlite3_prepare_v2(db, selectSQL, -1, &selectStmt, nil) == SQLITE_OK, let selectStmt = selectStmt {
@@ -722,9 +771,9 @@ public final class DatabaseManager: @unchecked Sendable {
         return queue.sync {
             let sql: String
             if pinboardId == nil {
-                sql = "SELECT id, type, content, rtf, image_path, preview, hash, pinned, created_at, source_name, source_icon, pinboard_id, is_sensitive, sensitive_type, custom_rule_name FROM clips WHERE pinboard_id IS NULL ORDER BY pinned DESC, created_at DESC LIMIT ?;"
+                sql = "SELECT id, type, content, rtf, image_path, preview, hash, pinned, created_at, source_name, source_icon, pinboard_id, is_sensitive, sensitive_type, custom_rule_name, title FROM clips WHERE pinboard_id IS NULL ORDER BY pinned DESC, created_at DESC LIMIT ?;"
             } else {
-                sql = "SELECT id, type, content, rtf, image_path, preview, hash, pinned, created_at, source_name, source_icon, pinboard_id, is_sensitive, sensitive_type, custom_rule_name FROM clips WHERE pinboard_id = ? ORDER BY pinned DESC, created_at DESC LIMIT ?;"
+                sql = "SELECT id, type, content, rtf, image_path, preview, hash, pinned, created_at, source_name, source_icon, pinboard_id, is_sensitive, sensitive_type, custom_rule_name, title FROM clips WHERE pinboard_id = ? ORDER BY pinned DESC, created_at DESC LIMIT ?;"
             }
             var stmt: OpaquePointer?
             var result: [ClipRecord] = []
@@ -973,6 +1022,11 @@ public final class DatabaseManager: @unchecked Sendable {
             customRuleName = String(cString: ptr)
         }
         
+        var title: String?
+        if sqlite3_column_type(stmt, 15) != SQLITE_NULL, let ptr = sqlite3_column_text(stmt, 15) {
+            title = String(cString: ptr)
+        }
+        
         return ClipRecord(
             id: id,
             type: type,
@@ -988,7 +1042,8 @@ public final class DatabaseManager: @unchecked Sendable {
             pinboardId: pinboardId,
             isSensitive: isSensitive,
             sensitiveType: sensitiveType,
-            customRuleName: customRuleName
+            customRuleName: customRuleName,
+            title: title
         )
     }
 }

@@ -141,6 +141,11 @@ public struct QuickLookPreviewView: View {
             }
             return .ignored
         }
+        .onKeyPress(characters: CharacterSet(charactersIn: "rR")) { _ in
+            NotificationCenter.default.post(name: .openRenameModal, object: clip)
+            onClose()
+            return .handled
+        }
     }
     
     private func loadRichText(isDark: Bool) {
@@ -230,7 +235,17 @@ public struct QuickLookPreviewView: View {
                         .foregroundStyle(detectedThemeColor)
                 }
                 
-                if let appName = clip.sourceName, !appName.isEmpty {
+                if let customTitle = clip.title, !customTitle.isEmpty {
+                    Text(customTitle)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.primary)
+                    
+                    if let appName = clip.sourceName, !appName.isEmpty {
+                        Text(String(format: L10n.tr("(%@)"), appName))
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundStyle(.secondary)
+                    }
+                } else if let appName = clip.sourceName, !appName.isEmpty {
                     Text(appName)
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.primary)
@@ -293,6 +308,17 @@ public struct QuickLookPreviewView: View {
                 .buttonStyle(.bordered)
                 .help(L10n.tr("Open link in browser"))
             }
+            
+            // Rename Button
+            Button(action: {
+                NotificationCenter.default.post(name: .openRenameModal, object: clip)
+                onClose()
+            }) {
+                Label(L10n.tr("Rename Clip"), systemImage: "pencil.line")
+                    .font(.system(size: 12))
+            }
+            .buttonStyle(.bordered)
+            .help(L10n.tr("Rename clip (R)"))
             
             // Edit Button
             if clip.type != .image {
