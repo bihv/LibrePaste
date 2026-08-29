@@ -49,17 +49,29 @@ public struct QuickLookPreviewView: View {
     }
     
     private var plainTextContent: String {
-        let cleanText = RichTextHelper.stripHTML(clip.content)
         if clip.isSensitive && !isRevealed {
-            if !clip.preview.isEmpty {
-                return RichTextHelper.stripHTML(clip.preview)
-            }
-            return "••••••••••••••••"
+            return clip.renderedPlainText(isRevealed: false)
         }
         if let rich = richAttributedString {
             return rich.string.trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        return !cleanText.isEmpty ? cleanText : clip.content
+        return clip.renderedPlainText(isRevealed: isRevealed)
+    }
+    
+    private var renderedContentText: String {
+        if clip.isSensitive && !isRevealed {
+            return clip.renderedPlainText(isRevealed: false)
+        }
+        if isJSON, let pretty = prettyJSON {
+            return pretty
+        }
+        if let rich = richAttributedString {
+            return rich.string.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if isURL {
+            return (parsedURL?.absoluteString ?? clip.content).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return clip.renderedPlainText(isRevealed: isRevealed)
     }
     
     // MARK: - Body
@@ -315,7 +327,7 @@ public struct QuickLookPreviewView: View {
             QuickLookImageContent(imagePath: clip.imagePath, imageActualSize: imageActualSize)
             
         case .link:
-            QuickLookLinkContent(url: parsedURL, content: clip.content)
+            QuickLookLinkContent(url: parsedURL, content: parsedURL?.absoluteString ?? clip.content)
             
         case .richtext, .text:
             if clip.isSensitive && !isRevealed {
@@ -329,7 +341,7 @@ public struct QuickLookPreviewView: View {
                     QuickLookTextContent(text: plainTextContent)
                 }
             } else if isURL {
-                QuickLookLinkContent(url: parsedURL, content: clip.content)
+                QuickLookLinkContent(url: parsedURL, content: parsedURL?.absoluteString ?? clip.content)
             } else {
                 QuickLookTextContent(text: plainTextContent)
             }
@@ -372,6 +384,7 @@ public struct QuickLookPreviewView: View {
                     }
                 }
             } else if isURL {
+                let urlString = (parsedURL?.absoluteString ?? clip.content).trimmingCharacters(in: .whitespacesAndNewlines)
                 if let host = parsedURL?.host {
                     Text(host)
                         .font(.system(size: 11, weight: .medium))
@@ -379,12 +392,13 @@ public struct QuickLookPreviewView: View {
                     Text("•")
                         .foregroundStyle(.tertiary)
                 }
-                Text(L10n.tr("%lld characters", Int64(clip.content.count)))
+                Text(L10n.tr("%lld characters", Int64(urlString.count)))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             } else {
-                let charCount = plainTextContent.count
-                let wordCount = plainTextContent.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
+                let text = renderedContentText
+                let charCount = text.count
+                let wordCount = text.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
                 
                 Text(L10n.tr("%lld characters", Int64(charCount)))
                     .font(.system(size: 11))

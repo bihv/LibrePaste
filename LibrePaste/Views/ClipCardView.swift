@@ -171,18 +171,7 @@ public struct ClipCardView: View {
     }
     
     private var displayPreviewText: String {
-        let cleanText = RichTextHelper.stripHTML(clip.content)
-        
-        if clip.isSensitive && !isRevealed {
-            if !clip.preview.isEmpty {
-                return RichTextHelper.stripHTML(clip.preview)
-            }
-            return "••••••••••••••••"
-        }
-        if !clip.preview.isEmpty && !clip.isSensitive {
-            return RichTextHelper.stripHTML(clip.preview)
-        }
-        return !cleanText.isEmpty ? cleanText : RichTextHelper.stripHTML(clip.preview)
+        clip.renderedPlainText(isRevealed: isRevealed)
     }
     
     private var textContentView: some View {
@@ -235,7 +224,7 @@ public struct ClipCardView: View {
                 .background((clip.sensitiveType?.themeColor ?? .orange).opacity(0.14))
                 .clipShape(RoundedRectangle(cornerRadius: 3.5))
             } else if clip.type == .text || clip.type == .richtext {
-                Text("\(clip.content.count) \(L10n.tr("chars"))")
+                Text("\(displayPreviewText.count) \(L10n.tr("chars"))")
                     .font(.system(size: 9.5, weight: .regular))
                     .foregroundStyle(.tertiary)
             }
@@ -465,17 +454,7 @@ private struct ClipCardDragPreview: View {
     let clip: ClipRecord
     
     private var previewText: String {
-        let cleanText = RichTextHelper.stripHTML(clip.content)
-        if clip.isSensitive {
-            if !clip.preview.isEmpty {
-                return RichTextHelper.stripHTML(clip.preview)
-            }
-            return "••••••••••••••••"
-        }
-        if !clip.preview.isEmpty {
-            return RichTextHelper.stripHTML(clip.preview)
-        }
-        return cleanText
+        clip.renderedPlainText(isRevealed: false)
     }
     
     var body: some View {

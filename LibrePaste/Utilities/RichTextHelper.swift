@@ -166,7 +166,17 @@ public final class RichTextHelper {
         guard html.contains("<") && html.contains(">") else {
             return html
         }
-        return html
+        var text = html
+        // Remove style blocks and their CSS contents
+        text = text.replacingOccurrences(of: "(?s)<style.*?>.*?</style>", with: "", options: .regularExpression)
+        // Remove script blocks and their JS contents
+        text = text.replacingOccurrences(of: "(?s)<script.*?>.*?</script>", with: "", options: .regularExpression)
+        // Remove head blocks
+        text = text.replacingOccurrences(of: "(?s)<head.*?>.*?</head>", with: "", options: .regularExpression)
+        // Remove HTML comments
+        text = text.replacingOccurrences(of: "(?s)<!--.*?-->", with: "", options: .regularExpression)
+        
+        return text
             .replacingOccurrences(of: "<br\\s*/?>", with: "\n", options: .regularExpression)
             .replacingOccurrences(of: "</(p|div|tr|li|h[1-6])>", with: "\n", options: .regularExpression)
             .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)

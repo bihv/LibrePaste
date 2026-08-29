@@ -512,7 +512,7 @@ public struct EditClipView: View {
             let preview = plain
             onSave(html.isEmpty ? plain : html, preview, rtf)
         } else {
-            let preview = editedRawContent.trimmingCharacters(in: .whitespacesAndNewlines)
+            let preview = isRichText ? RichTextHelper.stripHTML(editedRawContent) : editedRawContent.trimmingCharacters(in: .whitespacesAndNewlines)
             onSave(editedRawContent, preview, nil)
         }
     }

@@ -211,7 +211,7 @@ public struct ClipCompactRowView: View {
         HStack(spacing: 5) {
             // Character count / clip type info
             if clip.type == .text || clip.type == .richtext {
-                Text("\(clip.content.count) \(L10n.tr("chars"))")
+                Text("\(displayPreviewText.count) \(L10n.tr("chars"))")
                     .font(.system(size: 10))
                     .foregroundStyle(.tertiary)
             } else if clip.type == .link {
@@ -361,18 +361,7 @@ public struct ClipCompactRowView: View {
     }
     
     private var displayPreviewText: String {
-        let cleanText = RichTextHelper.stripHTML(clip.content)
-        
-        if clip.isSensitive && !isRevealed {
-            if !clip.preview.isEmpty {
-                return RichTextHelper.stripHTML(clip.preview)
-            }
-            return "••••••••••••••••"
-        }
-        if !clip.preview.isEmpty && !clip.isSensitive {
-            return RichTextHelper.stripHTML(clip.preview)
-        }
-        return !cleanText.isEmpty ? cleanText : RichTextHelper.stripHTML(clip.preview)
+        clip.renderedPlainText(isRevealed: isRevealed)
     }
     
     @ViewBuilder

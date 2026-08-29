@@ -287,6 +287,20 @@ nonisolated public struct ClipRecord: Identifiable, Codable, Equatable, Hashable
     @MainActor public var relativeTimeFormatted: String {
         createdDate.formatted(.relative(presentation: .numeric, unitsStyle: .abbreviated).locale(L10n.currentLocale))
     }
+    
+    public func renderedPlainText(isRevealed: Bool = false) -> String {
+        if isSensitive && !isRevealed {
+            if !preview.isEmpty {
+                return RichTextHelper.stripHTML(preview)
+            }
+            return "••••••••••••••••"
+        }
+        if !preview.isEmpty {
+            return RichTextHelper.stripHTML(preview)
+        }
+        let clean = RichTextHelper.stripHTML(content)
+        return !clean.isEmpty ? clean : content
+    }
 }
 
 // MARK: - ClipRecord Transferable
