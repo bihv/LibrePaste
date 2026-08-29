@@ -97,6 +97,7 @@ public final class FloatingPanel: NSPanel {
         animated: Bool = false
     ) {
         guard let targetScreen = screen ?? currentTargetScreen() else { return }
+        AppDelegate.shared?.lastActivePanelScreen = targetScreen
         
         let activeMode = mode ?? AppDelegate.shared?.store.windowPresentationMode ?? .bottomShelf
         let activeLayout = layout ?? AppDelegate.shared?.store.clipLayoutStyle ?? .compactList

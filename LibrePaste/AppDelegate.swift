@@ -23,6 +23,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     private var editWindow: NSWindow?
     private var currentEditClip: ClipRecord?
     private var shouldRestoreFloatingPanelOnCloseEdit: Bool = false
+    public var lastActivePanelScreen: NSScreen?
     private var isSettingsWindowOpen: Bool = false
     
     public func applicationDidFinishLaunching(_ notification: Notification) {
@@ -383,11 +384,57 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
+    // MARK: - Screen & Window Positioning
+    
+    @MainActor
+    public func targetScreenForActiveWorkspace() -> NSScreen? {
+        if let panel = floatingPanel, panel.isVisible, let screen = panel.screen {
+            return screen
+        }
+        let mouseLocation = NSEvent.mouseLocation
+        let screens = NSScreen.screens
+        if let screenUnderMouse = screens.first(where: { NSMouseInRect(mouseLocation, $0.frame, false) }) {
+            return screenUnderMouse
+        }
+        if let lastScreen = lastActivePanelScreen {
+            return lastScreen
+        }
+        return NSScreen.main ?? screens.first
+    }
+    
+    @MainActor
+    public func centerWindowOnTargetScreen(_ window: NSWindow, screen: NSScreen? = nil) {
+        guard let targetScreen = screen ?? targetScreenForActiveWorkspace() else {
+            window.center()
+            return
+        }
+        let screenFrame = targetScreen.visibleFrame
+        let windowFrame = window.frame
+        let newX = screenFrame.minX + (screenFrame.width - windowFrame.width) / 2
+        let newY = screenFrame.minY + (screenFrame.height - windowFrame.height) / 2
+        window.setFrameOrigin(NSPoint(x: newX, y: newY))
+    }
+    
+    @MainActor
+    public func centerSettingsWindowOnActiveScreen(screen: NSScreen? = nil) {
+        let targetScreen = screen ?? targetScreenForActiveWorkspace()
+        if let win = NSApp.windows.first(where: {
+            !($0 is NSPanel) &&
+            !$0.className.contains("StatusBar") &&
+            $0 != self.previewWindow &&
+            $0 != self.editWindow
+        }) {
+            centerWindowOnTargetScreen(win, screen: targetScreen)
+        }
+    }
+    
     // MARK: - Settings Window
     
     @objc public func handleOpenSettingsWindow() {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            
+            let targetScreen = self.targetScreenForActiveWorkspace()
             
             SecurityManager.shared.checkLockOnReveal()
             self.floatingPanel?.hidePanel(deactivateApp: false)
@@ -396,18 +443,39 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             
             NSApp.activate(ignoringOtherApps: true)
             
-            // Try standard macOS SwiftUI Settings action first
+            let repositionSettingsWindow = { [weak self] in
+                guard let self = self else { return }
+                for delay in [0.0, 0.05, 0.15] {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                        if let win = NSApp.windows.first(where: {
+                            !($0 is NSPanel) &&
+                            !$0.className.contains("StatusBar") &&
+                            $0 != self.previewWindow &&
+                            $0 != self.editWindow
+                        }) {
+                            self.centerWindowOnTargetScreen(win, screen: targetScreen)
+                            win.orderFrontRegardless()
+                            win.makeKeyAndOrderFront(nil)
+                        }
+                    }
+                }
+            }
+            
+            // Try standard macOS SwiftUI Settings action first (preserves native toolbar tabs)
             if #available(macOS 14.0, *) {
                 if NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) {
+                    repositionSettingsWindow()
                     return
                 }
             } else {
                 if NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil) {
+                    repositionSettingsWindow()
                     return
                 }
             }
             
             if let win = self.settingsWindow {
+                self.centerWindowOnTargetScreen(win, screen: targetScreen)
                 if win.isMiniaturized {
                     win.deminiaturize(nil)
                 }
@@ -428,7 +496,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 defer: false
             )
             window.title = L10n.tr("LibrePaste Settings")
-            window.center()
+            self.centerWindowOnTargetScreen(window, screen: targetScreen)
             window.contentView = hostingView
             window.isReleasedWhenClosed = false
             window.delegate = self
@@ -496,6 +564,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         if let window = previewWindow {
             window.title = L10n.tr("LibrePaste Preview - %@", clip.type.displayName)
             window.contentView = hostingView
+            centerWindowOnTargetScreen(window)
             if window.isMiniaturized {
                 window.deminiaturize(nil)
             }
@@ -513,7 +582,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         window.title = L10n.tr("LibrePaste Preview - %@", clip.type.displayName)
         window.minSize = NSSize(width: 500, height: 380)
-        window.center()
+        centerWindowOnTargetScreen(window)
         window.contentView = hostingView
         window.isReleasedWhenClosed = false
         window.delegate = self
@@ -533,13 +602,15 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             showFloatingPanel()
         } else {
             let hasOtherVisibleWindows = NSApp.windows.contains { win in
-                win != self.previewWindow && win != self.editWindow && win.isVisible && !(win is FloatingPanel) && !win.className.contains("StatusBar")
+                win != self.previewWindow && win != self.editWindow && win.isVisible && !(win is NSPanel) && !win.className.contains("StatusBar")
             }
             if !hasOtherVisibleWindows {
                 NSApp.deactivate()
             }
         }
     }
+    
+    // MARK: - Edit Window
     
     @objc public func handleOpenEditWindow(_ notification: Notification) {
         guard let clip = notification.object as? ClipRecord else { return }
@@ -599,6 +670,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         if let window = editWindow {
             window.title = windowTitle
             window.contentView = hostingView
+            centerWindowOnTargetScreen(window)
             if window.isMiniaturized {
                 window.deminiaturize(nil)
             }
@@ -616,7 +688,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         window.title = windowTitle
         window.minSize = NSSize(width: 500, height: 380)
-        window.center()
+        centerWindowOnTargetScreen(window)
         window.contentView = hostingView
         window.isReleasedWhenClosed = false
         window.delegate = self
@@ -636,7 +708,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             showFloatingPanel()
         } else {
             let hasOtherVisibleWindows = NSApp.windows.contains { win in
-                win != self.previewWindow && win != self.editWindow && win.isVisible && !(win is FloatingPanel) && !win.className.contains("StatusBar")
+                win != self.previewWindow && win != self.editWindow && win.isVisible && !(win is NSPanel) && !win.className.contains("StatusBar")
             }
             if !hasOtherVisibleWindows {
                 NSApp.deactivate()
@@ -657,7 +729,7 @@ extension AppDelegate: NSWindowDelegate {
                 showFloatingPanel()
             } else {
                 let hasOtherVisibleWindows = NSApp.windows.contains { win in
-                    win != window && win.isVisible && !(win is FloatingPanel) && !win.className.contains("StatusBar")
+                    win != window && win.isVisible && !(win is NSPanel) && !win.className.contains("StatusBar")
                 }
                 if !hasOtherVisibleWindows {
                     NSApp.deactivate()
@@ -670,7 +742,7 @@ extension AppDelegate: NSWindowDelegate {
                 showFloatingPanel()
             } else {
                 let hasOtherVisibleWindows = NSApp.windows.contains { win in
-                    win != window && win.isVisible && !(win is FloatingPanel) && !win.className.contains("StatusBar")
+                    win != window && win.isVisible && !(win is NSPanel) && !win.className.contains("StatusBar")
                 }
                 if !hasOtherVisibleWindows {
                     NSApp.deactivate()
@@ -681,7 +753,7 @@ extension AppDelegate: NSWindowDelegate {
             updateDockVisibility()
             
             let hasOtherVisibleWindows = NSApp.windows.contains { win in
-                win != window && win.isVisible && !(win is FloatingPanel) && !win.className.contains("StatusBar")
+                win != window && win.isVisible && !(win is NSPanel) && !win.className.contains("StatusBar")
             }
             if !hasOtherVisibleWindows {
                 NSApp.deactivate()

@@ -34,6 +34,7 @@ public enum SettingsTab: String, CaseIterable, Identifiable {
     }
 }
 
+@MainActor
 @Observable
 public final class SettingsState {
     public static let shared = SettingsState()

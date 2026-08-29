@@ -16,33 +16,32 @@ public struct SettingsView: View {
     }
     
     public var body: some View {
-        ZStack {
-            TabView(selection: $state.activeTab) {
-                GeneralSettingsTab(store: store)
-                    .tabItem {
-                        Label(SettingsTab.general.title, systemImage: SettingsTab.general.icon)
-                    }
-                    .tag(SettingsTab.general)
-                
-                StorageSettingsTab(store: store)
-                    .tabItem {
-                        Label(SettingsTab.storage.title, systemImage: SettingsTab.storage.icon)
-                    }
-                    .tag(SettingsTab.storage)
-                
-                PrivacySettingsTab(store: store)
-                    .tabItem {
-                        Label(SettingsTab.privacy.title, systemImage: SettingsTab.privacy.icon)
-                    }
-                    .tag(SettingsTab.privacy)
-                
-                AboutSettingsTab(store: store)
-                    .tabItem {
-                        Label(SettingsTab.about.title, systemImage: SettingsTab.about.icon)
-                    }
-                    .tag(SettingsTab.about)
-            }
+        TabView(selection: $state.activeTab) {
+            GeneralSettingsTab(store: store)
+                .tabItem {
+                    Label(SettingsTab.general.title, systemImage: SettingsTab.general.icon)
+                }
+                .tag(SettingsTab.general)
             
+            StorageSettingsTab(store: store)
+                .tabItem {
+                    Label(SettingsTab.storage.title, systemImage: SettingsTab.storage.icon)
+                }
+                .tag(SettingsTab.storage)
+            
+            PrivacySettingsTab(store: store)
+                .tabItem {
+                    Label(SettingsTab.privacy.title, systemImage: SettingsTab.privacy.icon)
+                }
+                .tag(SettingsTab.privacy)
+            
+            AboutSettingsTab(store: store)
+                .tabItem {
+                    Label(SettingsTab.about.title, systemImage: SettingsTab.about.icon)
+                }
+                .tag(SettingsTab.about)
+        }
+        .overlay {
             if store.isLocked {
                 LockOverlayView(store: store) {
                     store.unlockApp()
@@ -57,6 +56,7 @@ public struct SettingsView: View {
         .id(store.appLanguage)
         .onAppear {
             AppDelegate.shared?.setSettingsWindowOpen(true)
+            AppDelegate.shared?.centerSettingsWindowOnActiveScreen()
         }
         .onDisappear {
             AppDelegate.shared?.setSettingsWindowOpen(false)
