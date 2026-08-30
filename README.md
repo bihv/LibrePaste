@@ -11,6 +11,8 @@
   [![Languages](https://img.shields.io/badge/Languages-EN%20%7C%20VI-teal?style=flat-square)](LibrePaste/Resources/Localizable.xcstrings)
   [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
+  [English](README.md) • [Tiếng Việt](README.vi.md)
+
   [Key Features](#key-features) • [Keyboard Shortcuts](#keyboard-shortcuts) • [Display & Layout Modes](#display--layout-modes) • [Sequential Paste Queue](#sequential-paste-queue) • [Security & Privacy](#security--privacy) • [Building from Source](#building-from-source)
 
 </div>
